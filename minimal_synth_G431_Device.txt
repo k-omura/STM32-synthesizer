@@ -1,0 +1,98 @@
+Configuration	minimal_synth_G431_Device
+STM32CubeMX 	6.14.1
+Date	06/22/2025
+MCU	STM32G431CBUx
+
+
+
+PERIPHERALS	MODES	FUNCTIONS	PINS
+CORDIC	Activated	CORDIC_VS_CORDIC	VP_CORDIC_VS_CORDIC
+I2S2	Half-Duplex Master	I2S2_CK	PB13
+I2S2	Half-Duplex Master	I2S2_SD	PB15
+I2S2	Half-Duplex Master	I2S2_WS	PB12
+RCC	Crystal/Ceramic Resonator	RCC_OSC_IN	PF0-OSC_IN
+RCC	Crystal/Ceramic Resonator	RCC_OSC_OUT	PF1-OSC_OUT
+SPI1	Full-Duplex Slave	SPI1_MISO	PA6
+SPI1	Full-Duplex Slave	SPI1_MOSI	PA7
+SPI1	Full-Duplex Slave	SPI1_SCK	PA5
+SPI1	Hardware NSS Input Signal	SPI1_NSS	PA4
+SYS	SysTick	SYS_VS_Systick	VP_SYS_VS_Systick
+SYS	Dead Battery Signals disabled	SYS_VS_DBSignals	VP_SYS_VS_DBSignals
+USB	Device (FS)	USB_DM	PA11
+USB	Device (FS)	USB_DP	PA12
+
+
+
+Pin Nb	PINs	FUNCTIONs	LABELs
+2	PC13	GPIO_Input	Board_SW
+5	PF0-OSC_IN	RCC_OSC_IN	
+6	PF1-OSC_OUT	RCC_OSC_OUT	
+12	PA4	SPI1_NSS	
+13	PA5	SPI1_SCK	
+14	PA6	SPI1_MISO	
+15	PA7	SPI1_MOSI	
+25	PB12	I2S2_WS	
+26	PB13	I2S2_CK	
+28	PB15	I2S2_SD	
+29	PC6	GPIO_Output	Board_LED
+33	PA11	USB_DM	
+34	PA12	USB_DP	
+PERIPHERALS	MODES	FUNCTIONS	PINS
+CORDIC	Activated	CORDIC_VS_CORDIC	VP_CORDIC_VS_CORDIC
+I2S2	Half-Duplex Master	I2S2_CK	PB13
+I2S2	Half-Duplex Master	I2S2_SD	PB15
+I2S2	Half-Duplex Master	I2S2_WS	PB12
+RCC	Crystal/Ceramic Resonator	RCC_OSC_IN	PF0-OSC_IN
+RCC	Crystal/Ceramic Resonator	RCC_OSC_OUT	PF1-OSC_OUT
+SPI1	Full-Duplex Slave	SPI1_MISO	PA6
+SPI1	Full-Duplex Slave	SPI1_MOSI	PA7
+SPI1	Full-Duplex Slave	SPI1_SCK	PA5
+SPI1	Hardware NSS Input Signal	SPI1_NSS	PA4
+SYS	SysTick	SYS_VS_Systick	VP_SYS_VS_Systick
+SYS	Dead Battery Signals disabled	SYS_VS_DBSignals	VP_SYS_VS_DBSignals
+USB	Device (FS)	USB_DM	PA11
+USB	Device (FS)	USB_DP	PA12
+
+
+
+Pin Nb	PINs	FUNCTIONs	LABELs
+2	PC13	GPIO_Input	Board_SW
+5	PF0-OSC_IN	RCC_OSC_IN	
+6	PF1-OSC_OUT	RCC_OSC_OUT	
+12	PA4	SPI1_NSS	
+13	PA5	SPI1_SCK	
+14	PA6	SPI1_MISO	
+15	PA7	SPI1_MOSI	
+25	PB12	I2S2_WS	
+26	PB13	I2S2_CK	
+28	PB15	I2S2_SD	
+29	PC6	GPIO_Output	Board_LED
+33	PA11	USB_DM	
+34	PA12	USB_DP	
+
+
+
+SOFTWARE PROJECT
+
+Project Settings : 
+Project Name : minimal_synth_G431_Device
+Project Folder : /Users/omurakosuke/Documents/STM32/minimal_synth_G431_Device
+Toolchain / IDE : STM32CubeIDE
+Firmware Package Name and Version : STM32Cube FW_G4 V1.6.1
+
+
+Code Generation Settings : 
+STM32Cube MCU packages and embedded software packs : Copy only the necessary library files
+Generate peripheral initialization as a pair of '.c/.h' files per peripheral : No
+Backup previously generated files when re-generating : No
+Delete previously generated files when not re-generated : Yes
+Set all free pins as analog (to optimize the power consumption) : No
+
+
+Toolchains Settings : 
+Compiler Optimizations : 
+
+
+
+
+

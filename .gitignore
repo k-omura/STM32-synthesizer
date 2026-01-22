@@ -1,0 +1,16 @@
+
+.settings
+.vscode
+
+Release/
+Debug/
+
+Startup/
+
+CMSIS/
+CMSIS-DSP/
+STM32G4xx_HAL_Driver/
+AUDIO/
+
+.DS_Store
+Thumbs.db
