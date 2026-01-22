@@ -1,4 +1,4 @@
-# STM32 digital synthesizer
+# STM32 Digital Synthesizer (Virtual Analog Sound Source)
 
 ## Digital synthesizer project with STM32.
 The purpose of this project is to make a sound just by creating a simple synthesizer controller.  
