@@ -22,53 +22,62 @@
 // include end
 
 // define
-#define STM32SYNTH_HALF_NUM_SAMPLING (512)                                                    // Must be power of 4.
-#define STM32SYNTH_GND_LEVEL (STM32SYNTH_AMP_MAX >> 1)                                        // audio GND level(half to max)
-#define STM32SYNTH_HALF_NUM_SAMPLING_BY_4 (STM32SYNTH_HALF_NUM_SAMPLING >> 2)                 // STM32SYNTH_HALF_NUM_SAMPLING / 4
-#define STM32SYNTH_NUM_SAMPLING (STM32SYNTH_HALF_NUM_SAMPLING + STM32SYNTH_HALF_NUM_SAMPLING) //
-#define STM32SYNTH_NUM_I2SBUFF (STM32SYNTH_NUM_SAMPLING + STM32SYNTH_NUM_SAMPLING)            // buff size for i2s (L+R)
-#define STM32SYNTH_PRE_SAMPLE (100)                                                           //-
-#define STM32SYNTH_MAX_FREQ (STM32SYNTH_SAMPLE_FREQ >> 1)                                     // Hz
-#define STM32SYNTH_MAX_FREQ_NOTE (34579)                                                      //
-#define STM32SYNTH_MIN_FREQ (20)                                                              // Hz
-#define STM32SYNTH_SAMPLE_FORFILT (STM32SYNTH_HALF_NUM_SAMPLING + STM32SYNTH_PRE_SAMPLE)      //-
-#define STM32SYNTH_MAX_CHORD (24)                                                             //
-#define STM32SYNTH_HALF_CHORD (STM32SYNTH_MAX_CHORD >> 1)                                     //
+#define STM32SYNTH_HALF_NUM_SAMPLING (512)                                                    //!< Must be power of 4.
+#define STM32SYNTH_GND_LEVEL (STM32SYNTH_AMP_MAX >> 1)                                        //!< audio GND level(half to max)
+#define STM32SYNTH_HALF_NUM_SAMPLING_BY_4 (STM32SYNTH_HALF_NUM_SAMPLING >> 2)                 //!< STM32SYNTH_HALF_NUM_SAMPLING / 4
+#define STM32SYNTH_NUM_SAMPLING (STM32SYNTH_HALF_NUM_SAMPLING + STM32SYNTH_HALF_NUM_SAMPLING) //!< buff size for mono
+#define STM32SYNTH_NUM_I2SBUFF (STM32SYNTH_NUM_SAMPLING + STM32SYNTH_NUM_SAMPLING)            //!< buff size for i2s (L+R)
+#define STM32SYNTH_PRE_SAMPLE (100)                                                           //!< number of samples for pre-sampling (for filter, reverb, etc.)
+#define STM32SYNTH_MAX_FREQ (STM32SYNTH_SAMPLE_FREQ >> 1)                                     //!< maximum frequency (Hz)
+#define STM32SYNTH_MAX_FREQ_NOTE (34579)                                                      //!< maximum frequency note
+#define STM32SYNTH_MIN_FREQ (20)                                                              //!< minimum frequency (Hz)
+#define STM32SYNTH_SAMPLE_FORFILT (STM32SYNTH_HALF_NUM_SAMPLING + STM32SYNTH_PRE_SAMPLE)      //!< number of samples for filter
+#define STM32SYNTH_MAX_CHORD (24)                                                             //!< maximum number of chords
+#define STM32SYNTH_HALF_CHORD (STM32SYNTH_MAX_CHORD >> 1)                                     //!< half the maximum number of chords
 
-#define STM32SYNTH_M_PIF32 (3.141592653589793f)
-#define STM32SYNTH_DOUBLE_PI (6.283185307179586f)
+#define STM32SYNTH_M_PIF32 (3.141592653589793f)   //!< Pi for float32
+#define STM32SYNTH_DOUBLE_PI (6.283185307179586f) //!< Double Pi for float32
 
-#define STM32SYNTH_Q15_RANGE (0xFFFF)
-#define STM32SYNTH_Q15_MAX (0x7FFF)
+#define STM32SYNTH_Q15_RANGE (0xFFFF) //!< Range of q15_t (16-bit signed fixed point)
+#define STM32SYNTH_Q15_MAX (0x7FFF)   //!< Maximum positive value of q15_t (32767)
 
-#define STM32SYNTH_CHANNEL_NUMBER (16)
-#define STM32SYNTH_WAVEFORM_NUM_PERCHORD (2)
+#define STM32SYNTH_CHANNEL_NUMBER (16)       //!< Number of MIDI channels
+#define STM32SYNTH_WAVEFORM_NUM_PERCHORD (2) //!< Number of waveforms per chord (e.g., sine and square)
 
 #ifndef STM32SYNTH_DRUM_TESTMODE
-#define STM32SYNTH_DRUMCHORD_NUMBER (47)
+#define STM32SYNTH_DRUMCHORD_NUMBER (47) //!< Number of drum chords (must be less than STM32SYNTH_MAX_CHORD)
 #else
-#define STM32SYNTH_DRUMCHORD_NUMBER (48)
-#endif /* STM32SYNTH_DRUM_TESTMODE */
+#define STM32SYNTH_DRUMCHORD_NUMBER (48) //!< Number of drum chords (must be less than STM32SYNTH_MAX_CHORD). One extra for test mode.
+#endif                                   /* STM32SYNTH_DRUM_TESTMODE */
 
-#define STM32SYNTH_REVERB_NUM (4)
+#define STM32SYNTH_REVERB_NUM (4) //!< Number of reverb buffers (must be less than STM32SYNTH_MAX_CHORD)
 
 //- user start
 //- user end
 // define end
 
 // enum
+/**
+ * @brief Result type for STM32 Synthesizer API functions
+ */
 typedef enum
 {
     STM32SYNTH_RES_OK = 0,
     STM32SYNTH_RES_NG,
 } stm32synth_res_t;
 
+/**
+ * @brief MIDI note numbers for special channels
+ */
 typedef enum
 {
     STM32SYNTH_PARA_NOCHANGE = 0,
     STM32SYNTH_PARA_CHANGE,
 } stm32synth_parastate_t;
 
+/**
+ * @brief MIDI note numbers for special channels
+ */
 typedef enum
 {
     STM32SYNTH_LFO_SQU = 0,
@@ -76,6 +85,9 @@ typedef enum
     STM32SYNTH_LFO_SIN,
 } stm32synth_lfowaveform_t;
 
+/**
+ * @brief Phonic modes
+ */
 typedef enum
 {
     STM32SYNTH_PHONIC_POLY_SUSTON = 0,
@@ -84,12 +96,18 @@ typedef enum
     STM32SYNTH_PHONIC_MONO,
 } stm32synth_phonic_t;
 
+/**
+ * @brief Multi-channel modes
+ */
 typedef enum
 {
     STM32SYNTH_MULTICH_NONE = 0,
     STM32SYNTH_MULTICH_ALLCHON,
 } stm32synth_multich_t;
 
+/**
+ * @brief Waveform numbers
+ */
 typedef enum
 {
     STM32SYNTH_WAVEFORM_0 = 0,
@@ -101,31 +119,33 @@ typedef enum
 // enum end
 
 // struct
+/**
+ * @brief Configuration structure for filter settings per chord
+ */
 typedef struct
 {
-    uint8_t type;
+    uint8_t type; //!< Filter type (e.g., low-pass, band-pass, etc.)
     union Cutoff
     {
-        int16_t relative;  //
-        uint16_t absolute; //
+        int16_t relative;  //!< Relative cutoff frequency (in semitones, where 0 is the original frequency, positive values increase the cutoff frequency, and negative values decrease it)
+        uint16_t absolute; //!< Absolute cutoff frequency (in MIDI note number format, where the value is the MIDI note number multiplied by 256, e.g., 60 << 8 for middle C)
     } cutoff_freq_nn;
 
-    float32_t q_factor;
+    float32_t q_factor; //!< Q factor for the filter (higher values result in a narrower bandwidth around the cutoff frequency)
 
     // user add here start
     // user add here end
 } stm32synth_config_filter_chord_t;
 
+/**
+ * @brief Configuration structure for filter settings (can be used for master filter or chord filter)
+ */
 typedef struct
 {
 #ifdef STM32SYNTH_FILT_CMSIS
     arm_biquad_casd_df1_inst_q15 instance;
     q15_t pCoeffs[6];
     q15_t pState[4];
-#else
-    arm_biquad_cascade_df2T_instance_f32 instance;
-    float32_t pCoeffs[5];
-    float32_t buffer[2];
 #endif /* STM32SYNTH_FILT_CMSIS */
 
     stm32synth_config_filter_chord_t para;
@@ -135,6 +155,9 @@ typedef struct
     // user add here end
 } stm32synth_config_filter_t;
 
+/**
+ * @brief Configuration structure for the entire synthesizer, including all channels, waveforms, envelopes, LFOs, and optional reverb and filter settings
+ */
 typedef struct
 {
     float32_t val;
@@ -154,6 +177,9 @@ typedef struct
     // user add here end
 } stm32synth_config_lfo_t;
 
+/**
+ * @brief Configuration structure for the entire synthesizer, including all channels, waveforms, envelopes, LFOs, and optional reverb and filter settings
+ */
 typedef struct
 {
     uint16_t attack_ms;
@@ -165,6 +191,9 @@ typedef struct
     // user add here end
 } stm32synth_config_adsr_t;
 
+/**
+ * @brief Configuration structure for the entire synthesizer, including all channels, waveforms, envelopes, LFOs, and optional reverb and filter settings
+ */
 typedef struct
 {
     int16_t finish_value;
@@ -174,6 +203,9 @@ typedef struct
     // user add here end
 } stm32synth_config_envelopec_t;
 
+/**
+ * @brief Configuration structure for the entire synthesizer, including all channels, waveforms, envelopes, LFOs, and optional reverb and filter settings
+ */
 typedef struct
 {
     stm32synth_config_envelopec_t volume;
@@ -184,6 +216,9 @@ typedef struct
     // user add here end
 } stm32synth_config_envelope_t;
 
+/**
+ * @brief Configuration structure for a single waveform within a chord, including levels for sine, square, and triangle components, as well as pitch offset
+ */
 typedef struct
 {
     float32_t sin_level;
@@ -197,35 +232,44 @@ typedef struct
     // user add here end
 } stm32synth_config_waveform_t;
 
+/**
+ * @brief Configuration structure for the entire synthesizer, including all channels, waveforms, envelopes, LFOs, and optional reverb and filter settings
+ */
 #ifdef STM32SYNTH_REVERB
-    typedef struct
-    {
-        float32_t level;
+typedef struct
+{
+    float32_t level;
 
-        q15_t scaleFract;
-        int8_t shift;
+    q15_t scaleFract;
+    int8_t shift;
 
-        // user add here start
-        // user add here end
-    } stm32synth_config_reverb_t;
-    
+    // user add here start
+    // user add here end
+} stm32synth_config_reverb_t;
+
 #endif /* STM32SYNTH_REVERB */
 
+/**
+ * @brief Configuration structure for the entire synthesizer, including all channels, waveforms, envelopes, LFOs, and optional reverb and filter settings
+ */
 typedef struct
 {
     float32_t r_level;
     float32_t l_level;
 
-	q15_t r_scaleFract;
-	int8_t r_shift;
+    q15_t r_scaleFract;
+    int8_t r_shift;
 
-	q15_t l_scaleFract;
-	int8_t l_shift;
+    q15_t l_scaleFract;
+    int8_t l_shift;
 
     // user add here start
     // user add here end
 } stm32synth_config_pan_t;
 
+/**
+ * @brief Configuration structure for the entire synthesizer, including all channels, waveforms, envelopes, LFOs, and optional reverb and filter settings
+ */
 typedef struct
 {
     struct Buff
@@ -282,11 +326,12 @@ typedef struct
 // api-----------------------
 //- default start
 stm32synth_res_t stm32synth_init(
-	uint16_t *_dacBuff
+    uint16_t *_dacBuff
 #ifndef STM32SYNTH_SIN_LUT
-	, CORDIC_HandleTypeDef *_cordicHW
+    ,
+    CORDIC_HandleTypeDef *_cordicHW
 #endif /* STM32SYNTH_SIN_LUT*/
-	);
+);
 
 stm32synth_res_t stm32synth_hundleloop();
 stm32synth_res_t stm32synth_dacDmaCmplt_hundle();

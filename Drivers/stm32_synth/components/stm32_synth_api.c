@@ -22,12 +22,19 @@ static q15_t audiobuffer_presample[STM32SYNTH_PRE_SAMPLE];
 static q15_t audiobuffer_reverb[STM32SYNTH_REVERB_NUM][STM32SYNTH_HALF_NUM_SAMPLING];
 #endif /* STM32SYNTH_REVERB */
 
+/**
+ * @brief Init STM32 Synthesizer API
+ * @param _dacBuff: Pointer to DAC buffer (must be at least STM32SYNTH_HALF_NUM_SAMPLING in size)
+ * @param _cordicHW: Pointer to CORDIC hardware handle (required if STM32SYNTH_SIN_LUT is not defined)
+ * @return STM32SYNTH_RES_OK on success, STM32SYNTH_RES_NG on failure
+ */
 stm32synth_res_t stm32synth_init(
 	uint16_t *_dacBuff
 #ifndef STM32SYNTH_SIN_LUT
-	, CORDIC_HandleTypeDef *_cordicHW
+	,
+	CORDIC_HandleTypeDef *_cordicHW
 #endif /* STM32SYNTH_SIN_LUT*/
-	)
+)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_NG;
 
@@ -103,7 +110,7 @@ stm32synth_res_t stm32synth_init(
 		// LPF
 		for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
 		{
-			//config.lpf[cc].cutoff_freq_nn.relative = 127 - 0x40;
+			// config.lpf[cc].cutoff_freq_nn.relative = 127 - 0x40;
 			config.filter[cc].type = STM32SYNTH_FILTERTYPE_LPF;
 			config.filter[cc].cutoff_freq_nn.absolute = 127 << 8;
 			config.filter[cc].q_factor = 0.8f;
@@ -155,7 +162,7 @@ stm32synth_res_t stm32synth_init(
 		config.filter_master.para.q_factor = 1.0f;
 		config.filter_master.para.cutoff_freq_nn.absolute = (78 << 8);
 
-		if(config.filter_master.para.type == STM32SYNTH_FILTERTYPE_LSF)
+		if (config.filter_master.para.type == STM32SYNTH_FILTERTYPE_LSF)
 		{
 			stm32synth_component_updateLSF(&config.filter_master, 0);
 		}
@@ -169,12 +176,12 @@ stm32synth_res_t stm32synth_init(
 		config.pan.l_level = 1.0f;
 		config.pan.r_level = 1.0f;
 		stm32synth_component_f32toq15fract(config.pan.l_level, &config.pan.l_scaleFract, &config.pan.l_shift);
-    	stm32synth_component_f32toq15fract(config.pan.r_level, &config.pan.r_scaleFract, &config.pan.r_shift);
+		stm32synth_component_f32toq15fract(config.pan.r_level, &config.pan.r_scaleFract, &config.pan.r_shift);
 
 		// Reverb
 #ifdef STM32SYNTH_REVERB
 		config.reverb.level = 64.0f * 0.8f / 127.0f;
-        stm32synth_component_f32toq15fract(config.reverb.level, &config.reverb.scaleFract, &config.reverb.shift);
+		stm32synth_component_f32toq15fract(config.reverb.level, &config.reverb.scaleFract, &config.reverb.shift);
 #endif /* STM32SYNTH_REVERB */
 
 		// Multi Channel
@@ -195,8 +202,10 @@ stm32synth_res_t stm32synth_init(
 	return res;
 }
 
-// If use input midi buff, use this hundle.
-// Others don't need to use this function.
+/**
+ * @brief Handle main loop for STM32 Synthesizer API (process MIDI input buffer and update synthesizer state)
+ * @return STM32SYNTH_RES_OK on success, STM32SYNTH_RES_NG on failure
+ */
 stm32synth_res_t stm32synth_hundleloop()
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -206,6 +215,10 @@ stm32synth_res_t stm32synth_hundleloop()
 	return res;
 }
 
+/**
+ * @brief Handle DAC DMA complete interrupt (update DAC buffer with new audio data for the second half of the buffer)
+ * @return STM32SYNTH_RES_OK on success, STM32SYNTH_RES_NG on failure
+ */
 stm32synth_res_t stm32synth_dacDmaCmplt_hundle()
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -216,6 +229,10 @@ stm32synth_res_t stm32synth_dacDmaCmplt_hundle()
 	return res;
 }
 
+/**
+ * @brief Handle DAC DMA half complete interrupt (update DAC buffer with new audio data for the first half of the buffer)
+ * @return STM32SYNTH_RES_OK on success, STM32SYNTH_RES_NG on failure
+ */
 stm32synth_res_t stm32synth_dacDmaHalfCmplt_hundle()
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -226,6 +243,11 @@ stm32synth_res_t stm32synth_dacDmaHalfCmplt_hundle()
 	return res;
 }
 
+/**
+ * @brief Get current synthesizer configuration (copy internal config to provided buffer)
+ * @param _configBufftoCopy: Pointer to buffer where current config will be copied (must be at least sizeof(stm32synth_config_t) in size)
+ * @return STM32SYNTH_RES_OK on success, STM32SYNTH_RES_NG on failure
+ */
 stm32synth_res_t stm32synth_getConfig(stm32synth_config_t *_configBufftoCopy)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -235,6 +257,11 @@ stm32synth_res_t stm32synth_getConfig(stm32synth_config_t *_configBufftoCopy)
 	return res;
 }
 
+/**
+ * @brief Set new synthesizer configuration (copy provided config to internal config and update any necessary components)
+ * @param _configBuff: Pointer to new config to set (must be at least sizeof(stm32synth_config_t) in size)
+ * @return STM32SYNTH_RES_OK on success, STM32SYNTH_RES_NG on failure
+ */
 stm32synth_res_t stm32synth_setConfig(stm32synth_config_t *_configBuff)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -250,7 +277,7 @@ stm32synth_res_t stm32synth_setConfig(stm32synth_config_t *_configBuff)
 			config.filter_master.para.cutoff_freq_nn.absolute = (127 << 8);
 		}
 
-		if(config.filter_master.para.type == STM32SYNTH_FILTERTYPE_LSF)
+		if (config.filter_master.para.type == STM32SYNTH_FILTERTYPE_LSF)
 		{
 			stm32synth_component_updateLSF(&config.filter_master, 0);
 		}
@@ -264,15 +291,26 @@ stm32synth_res_t stm32synth_setConfig(stm32synth_config_t *_configBuff)
 	return res;
 }
 
+/**
+ * @brief Set MIDI program for a specific channel (update internal config and any necessary components for the given channel and program)
+ * @param _ch: MIDI channel to set program for (0-15)
+ * @param _program: MIDI program number to set (0-127)
+ * @return STM32SYNTH_RES_OK on success, STM32SYNTH_RES_NG on failure
+ */
 stm32synth_res_t stm32synth_program(uint8_t _ch, uint8_t _program)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
 
-    res = stm32synth_program_set(&config, _ch, _program);
+	res = stm32synth_program_set(&config, _ch, _program);
 
 	return res;
 }
 
+/**
+ * @brief Set multi-channel preset (update internal config and any necessary components based on the given preset)
+ * @param _preset: Multi-channel preset to set (STM32SYNTH_MULTICH_NONE, STM32SYNTH_MULTICH_ALLCHON, etc.)
+ * @return STM32SYNTH_RES_OK on success, STM32SYNTH_RES_NG on failure
+ */
 stm32synth_res_t stm32synth_multich(stm32synth_multich_t _preset)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -291,6 +329,11 @@ stm32synth_res_t stm32synth_multich(stm32synth_multich_t _preset)
 	return res;
 }
 
+/**
+ * @brief Handle MIDI input (process incoming MIDI message and update synthesizer state accordingly)
+ * @param _rcvdMidi: Pointer to received MIDI message (must be at least 3 bytes in size for a complete MIDI message)
+ * @return STM32SYNTH_RES_OK on success, STM32SYNTH_RES_NG on failure
+ */
 stm32synth_res_t stm32synth_inputMIDI(uint8_t *_rcvdMidi)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;

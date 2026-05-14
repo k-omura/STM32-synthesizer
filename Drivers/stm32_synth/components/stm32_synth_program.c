@@ -20,7 +20,7 @@ stm32synth_res_t stm32synth_program_set(stm32synth_config_t *_config, uint8_t _c
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
 
-	if(_ch == STM32SYNTH_MIDINN_DRUMCH)
+	if (_ch == STM32SYNTH_MIDINN_DRUMCH)
 	{
 		return res;
 	}
@@ -45,7 +45,7 @@ stm32synth_res_t stm32synth_program_clear(stm32synth_config_t *_config, uint8_t 
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
 
-	if(_ch == STM32SYNTH_MIDINN_DRUMCH)
+	if (_ch == STM32SYNTH_MIDINN_DRUMCH)
 	{
 		return res;
 	}

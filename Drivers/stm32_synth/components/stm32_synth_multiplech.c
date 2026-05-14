@@ -83,7 +83,7 @@ stm32synth_res_t stm32synth_multich_clear(stm32synth_config_t *_config)
 #ifdef STM32SYNTH_CHORDFILTER
             _config->filter[cc].q_factor = 0.8f;
             //_config->lpf[cc].cutoff_freq_nn.relative = 127 - 0x40;
-			_config->filter[cc].cutoff_freq_nn.absolute = 127 << 8;
+            _config->filter[cc].cutoff_freq_nn.absolute = 127 << 8;
 #endif
 #endif
 
@@ -115,14 +115,14 @@ stm32synth_res_t stm32synth_multich_clear(stm32synth_config_t *_config)
     _config->filter_master.para.q_factor = 0.8f;
     _config->filter_master.para.cutoff_freq_nn.absolute = STM32SYNTH_MAX_FREQ_NOTE;
 
-		if(_config->filter_master.para.type == STM32SYNTH_FILTERTYPE_LSF)
-		{
-		    stm32synth_component_updateLSF(&_config->filter_master, 0);
-		}
-		else
-		{
-		    stm32synth_component_updateLPF(&_config->filter_master, 0);
-		}
+    if (_config->filter_master.para.type == STM32SYNTH_FILTERTYPE_LSF)
+    {
+        stm32synth_component_updateLSF(&_config->filter_master, 0);
+    }
+    else
+    {
+        stm32synth_component_updateLPF(&_config->filter_master, 0);
+    }
 #endif /* STM32SYNTH_FILTER */
 
     _config->tre_master = initLfo;

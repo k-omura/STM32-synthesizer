@@ -17,7 +17,7 @@ static uint8_t USBD_MIDI_DeInit(USBD_HandleTypeDef *pdev, uint8_t cfgidx);
 static uint8_t USBD_MIDI_DataIn(USBD_HandleTypeDef *pdev, uint8_t epnum);
 static uint8_t USBD_MIDI_DataOut(USBD_HandleTypeDef *pdev, uint8_t epnum);
 
-static uint8_t* USBD_MIDI_GetCfgDesc(uint16_t *length);
+static uint8_t *USBD_MIDI_GetCfgDesc(uint16_t *length);
 // uint8_t  *USBD_MIDI_GetDeviceQualifierDescriptor (uint16_t *length);
 USBD_HandleTypeDef *pInstance = NULL;
 
@@ -58,106 +58,209 @@ USBD_ClassTypeDef USBD_MIDI = {
 	NULL,
 	NULL,
 	NULL,
-	NULL,                 // HS
+	NULL,				  // HS
 	USBD_MIDI_GetCfgDesc, // FS
-	NULL,                 // OTHER SPEED
-	NULL,                 // DEVICE_QUALIFIER
+	NULL,				  // OTHER SPEED
+	NULL,				  // DEVICE_QUALIFIER
 };
 
 /* USB MIDI device Configuration Descriptor */
 __ALIGN_BEGIN uint8_t USBD_MIDI_CfgDesc[USB_MIDI_CONFIG_DESC_SIZ] __ALIGN_END = {
-		// configuration descriptor
-		0x09, 0x02, 0x65, 0x00, 0x02, 0x01, 0x00, 0x80, 0x31,
+	// configuration descriptor
+	0x09,
+	0x02,
+	0x65,
+	0x00,
+	0x02,
+	0x01,
+	0x00,
+	0x80,
+	0x31,
 
-		// The Audio Interface Collection
-		0x09, 0x04, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00,
-		// Standard AC Interface Descriptor
-		0x09, 0x24, 0x01, 0x00, 0x01, 0x09, 0x00, 0x01, 0x01,
-		// Class-specific AC Interface Descriptor
-		0x09, 0x04, 0x01, 0x00, 0x02, 0x01, 0x03, 0x00, 0x00,
-		// MIDIStreaming Interface Descriptors
-		0x07, 0x24, 0x01, 0x00, 0x01, 0x41, 0x00,
-		// Class-Specific MS Interface Header Descriptor
+	// The Audio Interface Collection
+	0x09,
+	0x04,
+	0x00,
+	0x00,
+	0x00,
+	0x01,
+	0x01,
+	0x00,
+	0x00,
+	// Standard AC Interface Descriptor
+	0x09,
+	0x24,
+	0x01,
+	0x00,
+	0x01,
+	0x09,
+	0x00,
+	0x01,
+	0x01,
+	// Class-specific AC Interface Descriptor
+	0x09,
+	0x04,
+	0x01,
+	0x00,
+	0x02,
+	0x01,
+	0x03,
+	0x00,
+	0x00,
+	// MIDIStreaming Interface Descriptors
+	0x07,
+	0x24,
+	0x01,
+	0x00,
+	0x01,
+	0x41,
+	0x00,
+	// Class-Specific MS Interface Header Descriptor
 
-		// MIDI IN JACKS
-		0x06, 0x24, 0x02, 0x01, 0x01, 0x00,
-		0x06, 0x24, 0x02, 0x02, 0x02, 0x00,
+	// MIDI IN JACKS
+	0x06,
+	0x24,
+	0x02,
+	0x01,
+	0x01,
+	0x00,
+	0x06,
+	0x24,
+	0x02,
+	0x02,
+	0x02,
+	0x00,
 
-		// MIDI OUT JACKS
-		0x09, 0x24, 0x03, 0x01, 0x03, 0x01, 0x02, 0x01, 0x00,
-		0x09, 0x24, 0x03, 0x02, 0x06, 0x01, 0x01, 0x01, 0x00,
+	// MIDI OUT JACKS
+	0x09,
+	0x24,
+	0x03,
+	0x01,
+	0x03,
+	0x01,
+	0x02,
+	0x01,
+	0x00,
+	0x09,
+	0x24,
+	0x03,
+	0x02,
+	0x06,
+	0x01,
+	0x01,
+	0x01,
+	0x00,
 
-		// OUT endpoint descriptor
-		0x09, 0x05, MIDI_OUT_EP, 0x02, 0x40, 0x00, 0x00, 0x00, 0x00,
-		0x05, 0x25, 0x01, 0x01, 0x01,
+	// OUT endpoint descriptor
+	0x09,
+	0x05,
+	MIDI_OUT_EP,
+	0x02,
+	0x40,
+	0x00,
+	0x00,
+	0x00,
+	0x00,
+	0x05,
+	0x25,
+	0x01,
+	0x01,
+	0x01,
 
-		// IN endpoint descriptor
-		0x09, 0x05, MIDI_IN_EP, 0x02, 0x40, 0x00, 0x00, 0x00, 0x00,
-		0x05, 0x25, 0x01, 0x01, 0x03,
+	// IN endpoint descriptor
+	0x09,
+	0x05,
+	MIDI_IN_EP,
+	0x02,
+	0x40,
+	0x00,
+	0x00,
+	0x00,
+	0x00,
+	0x05,
+	0x25,
+	0x01,
+	0x01,
+	0x03,
 };
 
-static uint8_t USBD_MIDI_Init(USBD_HandleTypeDef *pdev, uint8_t cfgidx) {
+static uint8_t USBD_MIDI_Init(USBD_HandleTypeDef *pdev, uint8_t cfgidx)
+{
 	pInstance = pdev;
 	USBD_LL_OpenEP(pdev, MIDI_IN_EP, USBD_EP_TYPE_BULK, MIDI_DATA_IN_PACKET_SIZE);
 	USBD_LL_OpenEP(pdev, MIDI_OUT_EP, USBD_EP_TYPE_BULK, MIDI_DATA_OUT_PACKET_SIZE);
-	USBD_LL_PrepareReceive(pdev, MIDI_OUT_EP, (uint8_t*) (USB_Rx_Buffer), MIDI_DATA_OUT_PACKET_SIZE);
+	USBD_LL_PrepareReceive(pdev, MIDI_OUT_EP, (uint8_t *)(USB_Rx_Buffer), MIDI_DATA_OUT_PACKET_SIZE);
 	return 0;
 }
 
-static uint8_t USBD_MIDI_DeInit(USBD_HandleTypeDef *pdev, uint8_t cfgidx) {
+static uint8_t USBD_MIDI_DeInit(USBD_HandleTypeDef *pdev, uint8_t cfgidx)
+{
 	pInstance = NULL;
 	USBD_LL_CloseEP(pdev, MIDI_IN_EP);
 	USBD_LL_CloseEP(pdev, MIDI_OUT_EP);
 	return 0;
 }
 
-static uint8_t USBD_MIDI_DataIn(USBD_HandleTypeDef *pdev, uint8_t epnum) {
-	if (USB_Tx_State == 1) {
+static uint8_t USBD_MIDI_DataIn(USBD_HandleTypeDef *pdev, uint8_t epnum)
+{
+	if (USB_Tx_State == 1)
+	{
 		USB_Tx_State = 0;
 	}
 	return USBD_OK;
 }
 
-static uint8_t USBD_MIDI_DataOut(USBD_HandleTypeDef *pdev, uint8_t epnum) {
+static uint8_t USBD_MIDI_DataOut(USBD_HandleTypeDef *pdev, uint8_t epnum)
+{
 	uint16_t USB_Rx_Cnt;
 
 	USBD_MIDI_ItfTypeDef *pmidi;
-	pmidi = (USBD_MIDI_ItfTypeDef*) (pdev->pUserData);
+	pmidi = (USBD_MIDI_ItfTypeDef *)(pdev->pUserData);
 
-	USB_Rx_Cnt = ((PCD_HandleTypeDef*) pdev->pData)->OUT_ep[epnum].xfer_count;
+	USB_Rx_Cnt = ((PCD_HandleTypeDef *)pdev->pData)->OUT_ep[epnum].xfer_count;
 
-	pmidi->pIf_MidiRx((uint8_t*) &USB_Rx_Buffer, USB_Rx_Cnt);
+	pmidi->pIf_MidiRx((uint8_t *)&USB_Rx_Buffer, USB_Rx_Cnt);
 
-	USBD_LL_PrepareReceive(pdev, MIDI_OUT_EP, (uint8_t*) (USB_Rx_Buffer), MIDI_DATA_OUT_PACKET_SIZE);
+	USBD_LL_PrepareReceive(pdev, MIDI_OUT_EP, (uint8_t *)(USB_Rx_Buffer), MIDI_DATA_OUT_PACKET_SIZE);
 	return USBD_OK;
 }
 
-void USBD_MIDI_SendPacket() {
+void USBD_MIDI_SendPacket()
+{
 	uint16_t USB_Tx_ptr;
 	uint16_t USB_Tx_length;
 
-	if (USB_Tx_State != 1) {
-		if (APP_Rx_ptr_out == APP_RX_DATA_SIZE) {
+	if (USB_Tx_State != 1)
+	{
+		if (APP_Rx_ptr_out == APP_RX_DATA_SIZE)
+		{
 			APP_Rx_ptr_out = 0;
 		}
 
-		if (APP_Rx_ptr_out == APP_Rx_ptr_in) {
+		if (APP_Rx_ptr_out == APP_Rx_ptr_in)
+		{
 			USB_Tx_State = 0;
 			return;
 		}
 
-		if (APP_Rx_ptr_out > APP_Rx_ptr_in) {
+		if (APP_Rx_ptr_out > APP_Rx_ptr_in)
+		{
 			APP_Rx_length = APP_RX_DATA_SIZE - APP_Rx_ptr_out;
-		} else {
+		}
+		else
+		{
 			APP_Rx_length = APP_Rx_ptr_in - APP_Rx_ptr_out;
 		}
 
-		if (APP_Rx_length > MIDI_DATA_IN_PACKET_SIZE) {
+		if (APP_Rx_length > MIDI_DATA_IN_PACKET_SIZE)
+		{
 			USB_Tx_ptr = APP_Rx_ptr_out;
 			USB_Tx_length = MIDI_DATA_IN_PACKET_SIZE;
 			APP_Rx_ptr_out += MIDI_DATA_IN_PACKET_SIZE;
 			APP_Rx_length -= MIDI_DATA_IN_PACKET_SIZE;
-		} else {
+		}
+		else
+		{
 			USB_Tx_ptr = APP_Rx_ptr_out;
 			USB_Tx_length = APP_Rx_length;
 			APP_Rx_ptr_out += APP_Rx_length;
@@ -165,11 +268,12 @@ void USBD_MIDI_SendPacket() {
 		}
 		USB_Tx_State = 1;
 		USBD_LL_Transmit(pInstance, MIDI_IN_EP,
-				(uint8_t*) &APP_Rx_Buffer[USB_Tx_ptr], USB_Tx_length);
+						 (uint8_t *)&APP_Rx_Buffer[USB_Tx_ptr], USB_Tx_length);
 	}
 }
 
-static uint8_t* USBD_MIDI_GetCfgDesc(uint16_t *length) {
+static uint8_t *USBD_MIDI_GetCfgDesc(uint16_t *length)
+{
 	*length = sizeof(USBD_MIDI_CfgDesc);
 	return USBD_MIDI_CfgDesc;
 }
@@ -180,12 +284,14 @@ static uint8_t* USBD_MIDI_GetCfgDesc(uint16_t *length) {
 // }
 
 uint8_t USBD_MIDI_RegisterInterface(USBD_HandleTypeDef *pdev,
-		USBD_MIDI_ItfTypeDef *fops) {
-	if (fops == NULL) {
-		return (uint8_t) USBD_FAIL;
+									USBD_MIDI_ItfTypeDef *fops)
+{
+	if (fops == NULL)
+	{
+		return (uint8_t)USBD_FAIL;
 	}
 
 	pdev->pUserData = fops;
 
-	return (uint8_t) USBD_OK;
+	return (uint8_t)USBD_OK;
 }

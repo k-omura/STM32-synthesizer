@@ -10,16 +10,16 @@
 #ifndef STM32_SYNTH_COMPONENTS_STM32_SYNTH_MIDI_H_
 #define STM32_SYNTH_COMPONENTS_STM32_SYNTH_MIDI_H_
 
-#define STM32SYNTH_MIDIBUFF_SIZE (256)
-#define STM32SYNTH_MIDINN_DRUMCH (9)
+#define STM32SYNTH_MIDIBUFF_SIZE (256) //!< Size of the MIDI input ring buffer (must be a power of 2 for efficient indexing)
+#define STM32SYNTH_MIDINN_DRUMCH (9)   //!< MIDI channel number reserved for drum sounds (0-based index, so channel 10 in MIDI specification)
 
 #ifndef STM32SYNTH_DRUM_TESTMODE
-#define STM32SYNTH_MIDINN_LOWESTDRUM (35)
+#define STM32SYNTH_MIDINN_LOWESTDRUM (35) //!< Lowest MIDI note number for drum sounds (must be less than STM32SYNTH_MIDINN_HIGHESTDRUM)
 #else
-#define STM32SYNTH_MIDINN_LOWESTDRUM (34)
-#endif /* STM32SYNTH_DRUM_TESTMODE */
+#define STM32SYNTH_MIDINN_LOWESTDRUM (34) //!< Lowest MIDI note number for drum sounds (must be less than STM32SYNTH_MIDINN_HIGHESTDRUM). One extra for test mode.
+#endif									  /* STM32SYNTH_DRUM_TESTMODE */
 
-#define STM32SYNTH_MIDINN_HIGHESTDRUM (STM32SYNTH_MIDINN_LOWESTDRUM + STM32SYNTH_DRUMCHORD_NUMBER)
+#define STM32SYNTH_MIDINN_HIGHESTDRUM (STM32SYNTH_MIDINN_LOWESTDRUM + STM32SYNTH_DRUMCHORD_NUMBER) //!< Highest MIDI note number for drum sounds (must be greater than STM32SYNTH_MIDINN_LOWESTDRUM and less than 128)
 
 // enum
 typedef enum

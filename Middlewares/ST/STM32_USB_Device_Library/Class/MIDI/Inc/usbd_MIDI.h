@@ -47,8 +47,7 @@ extern "C"
   extern USBD_ClassTypeDef USBD_MIDI;
 #define USBD_MIDI_CLASS &USBD_MIDI
 
-  uint8_t USBD_MIDI_RegisterInterface(USBD_HandleTypeDef *pdev,
-                                      USBD_MIDI_ItfTypeDef *fops);
+  uint8_t USBD_MIDI_RegisterInterface(USBD_HandleTypeDef *pdev, USBD_MIDI_ItfTypeDef *fops);
 
 #ifdef __cplusplus
 }

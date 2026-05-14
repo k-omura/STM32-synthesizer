@@ -184,10 +184,10 @@ stm32synth_res_t stm32synth_midi_inputmidiCC(stm32synth_config_t *_config, uint8
     stm32synth_res_t res = STM32SYNTH_RES_OK;
 
 #ifndef STM32SYNTH_DRUM_TESTMODE
-	if(_ch == STM32SYNTH_MIDINN_DRUMCH)
-	{
-		return res;
-	}
+    if (_ch == STM32SYNTH_MIDINN_DRUMCH)
+    {
+        return res;
+    }
 #endif /* STM32SYNTH_DRUM_TESTMODE */
 
     switch (_cc)
@@ -215,33 +215,33 @@ stm32synth_res_t stm32synth_midi_inputmidiCC(stm32synth_config_t *_config, uint8
         break;
 
     case STM32SYNTH_MIDICC_VOLUME: // Volume for channel
-    // case STM32SYNTH_MIDICC_EXPRESSION:
-    {
-        if ((cablenumfilt == STM32SYNTH_CABLENUMFILT_ON) && (_cablenum == 0))
+        // case STM32SYNTH_MIDICC_EXPRESSION:
         {
-            break; // Ignore volume control when CableNum filter is on
-        }
-
-        float32_t vol = (float32_t)_val / 128.0f;
-
-        uint16_t ch0NoteMirror = _config->ch0NoteMirror;
-        if ((_ch == 0) && (ch0NoteMirror > 1))
-        {
-            for (uint8_t i = 0; i < 16; i++)
+            if ((cablenumfilt == STM32SYNTH_CABLENUMFILT_ON) && (_cablenum == 0))
             {
-                if (ch0NoteMirror & 0b0000000000000001)
-                {
-                    _config->volume[i] = vol;
-                }
-                ch0NoteMirror >>= 1;
+                break; // Ignore volume control when CableNum filter is on
             }
+
+            float32_t vol = (float32_t)_val / 128.0f;
+
+            uint16_t ch0NoteMirror = _config->ch0NoteMirror;
+            if ((_ch == 0) && (ch0NoteMirror > 1))
+            {
+                for (uint8_t i = 0; i < 16; i++)
+                {
+                    if (ch0NoteMirror & 0b0000000000000001)
+                    {
+                        _config->volume[i] = vol;
+                    }
+                    ch0NoteMirror >>= 1;
+                }
+            }
+            else
+            {
+                _config->volume[_ch] = vol;
+            }
+            break;
         }
-        else
-        {
-            _config->volume[_ch] = vol;
-        }
-        break;
-    }
 
     case STM32SYNTH_MIDICC_PAN:
         _config->pan.r_level = (float32_t)_val / 64.0f;
