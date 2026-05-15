@@ -12,6 +12,10 @@ CMSIS-DSP/
 STM32G4xx_HAL_Driver/
 AUDIO/
 
+minimal_synth_G431_Device.launch
+minimal_synth_G431_Device.pdf
+minimal_synth_G431_Device.txt
+
 .DS_Store
 Thumbs.db
 myenv/
