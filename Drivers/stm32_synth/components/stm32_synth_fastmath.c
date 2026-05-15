@@ -5,48 +5,75 @@
 
 #include "stm32_synth_fastmath.h"
 
-#ifdef STM32SYNTH_FASTMATH_ENABLE
+// support functions
+static inline float32_t fast_floorf(float32_t x);
 
 /**
- * @brief Ultra-fast approximation of pow(2, x) using bit manipulation
+ * @brief Fast approximation of powf(2, x)
  * @param x Exponent value
  * @return Approximation of 2^x
- * @note Accuracy: ±0.002% for x in [-6, 6], very fast for real-time frequency calculations
- * @warning Limited range, use for bounded frequency calculations
  */
-float32_t fast_pow2_bit(float32_t _x)
+float32_t fast_exp2f(float32_t _x)
 {
-    // Calculate the exponent part (integer) and the fractional part
-    int32_t int_part = (int32_t)_x;
-    float32_t frac_part = _x - int_part;
+    const float32_t c1 = 0.6931471806f;   // ln(2)
+    const float32_t c2 = 0.2402265070f;   // ln(2)^2 / 2
+    const float32_t c3 = 0.5550341547e-1; // ln(2)^3 / 6
 
-    // Use bit manipulation to calculate 2^int_part
-    uint32_t exp_int = (uint32_t)(int_part + 127) << 23; // 127 is the bias for single-precision
+    // Clip out-of-range values
+    if (_x > 127.0f)
+    {
+        return 10000.0f;
+    }
 
-    // Use a polynomial approximation for 2^frac_part
-    // Approximation: 2^y ≈ 1 + y*ln(2) + (y*ln(2))^2/2 + (y*ln(2))^3/6
-    const float32_t LN2 = 0.6931471805599453f;
-    float32_t exp_frac = 1.0f + frac_part * LN2 + (frac_part * LN2) * (frac_part * LN2) * 0.5f + (frac_part * LN2) * (frac_part * LN2) * (frac_part * LN2) * 0.16666666666666666f;
+    if (_x < -126.0f)
+    {
+        return 0.0f;
+    }
 
-    // Combine integer and fractional parts
+    // Split into integer and fractional parts
+    float32_t i = fast_floorf(_x);
+    float32_t f = _x - i;
+
+    // Approximate the fractional exponent with a polynomial
+    float32_t poly = c3 * f;
+    poly = (poly + c2) * f;
+    poly = (poly + c1) * f;
+    poly = poly + 1.0f; // 2^f ≈ 1.0 + c1*f + c2*f^2 + c3*f^3
+
+    // Combine integer part into floating-point exponent bits
+    // Using IEEE 754 single-precision layout
     union
     {
-        uint32_t i;
         float32_t f;
+        uint32_t i;
     } result;
 
-    result.i = exp_int;         // Set the exponent part
-    return result.f * exp_frac; // Multiply by the fractional approximation
+    result.i = (uint32_t)((i + 127.0f) * (1 << 23));
+    result.f *= poly;
+
+    return result.f;
 }
 
 /**
- * @brief Polynomial approximation of powf(10, x)
+ * @brief Fast approximation of powf(10, x)
  * @param x Exponent value
  * @return Approximation of 10^x
- * @note Accuracy: ±0.01% for all values of x(float), very fast for real-time frequency calculations
  */
-float32_t fast_pow10_poly(float32_t _x)
+float32_t fast_exp10f(float32_t _x)
 {
+    const float32_t LOG2_10 = 3.3219280948873626f; // log2(10)
+    return fast_exp2f(_x * LOG2_10);
 }
 
-#endif /* STM32SYNTH_FASTMATH_ENABLE */
+/**
+ * @brief Fast approximation of floorf for positive and negative values
+ *
+ * @param x
+ * @return float32_t
+ */
+static inline float32_t fast_floorf(float32_t x)
+{
+    int32_t i = (int32_t)x;
+    // If x is negative and not an integer, we need to subtract 1 to get the correct floor value
+    return (float32_t)(i - (x < i));
+}

@@ -689,12 +689,7 @@ stm32synth_res_t stm32synth_chord_adsrCurve(stm32synth_config_t *_config, stm32s
         _configChord->adsr.count = 0;
         _configChord->adsr.state++;
     }
-    *_amp =
-#ifdef STM32SYNTH_FASTMATH_ENABLE
-        fast_pow10_poly(-2.0f * (float32_t)_configChord->adsr.count / adsr_time);
-#else
-        powf(10.0f, -2.0f * (float32_t)_configChord->adsr.count / adsr_time);
-#endif
+    *_amp = fast_exp10f(-2.0f * (float32_t)_configChord->adsr.count / adsr_time);
 
     switch (_configChord->adsr.state)
     {
@@ -738,12 +733,7 @@ stm32synth_res_t stm32synth_chord_envelope(stm32synth_config_envelopec_t *_envel
     }
 
     (*_envelopeCount) += (1000 * STM32SYNTH_HALF_NUM_SAMPLING) / STM32SYNTH_SAMPLE_FREQ;
-    (*_outval) = _envelopec->finish_value + (int16_t)((float32_t)(-_envelopec->finish_value) *
-#ifdef STM32SYNTH_FASTMATH_ENABLE
-                                                      fast_pow10_poly(-2.0f * (float32_t)(*_envelopeCount) / (float32_t)_envelopec->time_ms));
-#else
-                                                      powf(10.0f, -2.0f * (float32_t)(*_envelopeCount) / (float32_t)_envelopec->time_ms));
-#endif
+    (*_outval) = _envelopec->finish_value + (int16_t)((float32_t)(-_envelopec->finish_value) * fast_exp10f(-2.0f * (float32_t)(*_envelopeCount) / (float32_t)_envelopec->time_ms));
 
     return res;
 }
@@ -752,12 +742,7 @@ stm32synth_res_t stm32synth_chord_makerad(stm32synth_config_t *_config, stm32syn
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
 
-    float32_t freq = STM32SYNTH_TUNING *
-#ifdef STM32SYNTH_FASTMATH_ENABLE
-                     fast_pow2_bit(((float32_t)_nn / 3072.0f) - 5.75f);
-#else
-                     powf(2.0f, ((float32_t)_nn / 3072.0f) - 5.75f);
-#endif
+    float32_t freq = STM32SYNTH_TUNING * fast_exp2f(((float32_t)_nn / 3072.0f) - 5.75f);
 
     // float32_t delta_omega = freq * STM32SYNTH_DOUBLE_PI / (float32_t)STM32SYNTH_SAMPLE_FREQ;
 

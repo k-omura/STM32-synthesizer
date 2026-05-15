@@ -8,8 +8,30 @@
 #include "components/stm32_synth_component.h"
 #include "components/stm32_synth_fastmath.h"
 
+/**
+ * @def STM32SYNTH_FILT_SHIFT
+ * @brief Filter coefficient shift factor for Q15 fixed-point arithmetic
+ *
+ * Used to scale filter coefficients for the biquad cascade filter implementation.
+ * A value of 3 allows for efficient bit-shifting operations.
+ */
 #define STM32SYNTH_FILT_SHIFT 3
 
+/**
+ * @brief Update DAC buffer with audio samples from the back buffer
+ *
+ * This function converts audio samples from the back buffer to the DAC output buffer.
+ * It supports both mono (I2S) and stereo configurations. In stereo mode, applies pan
+ * scaling factors to the left and right channels independently.
+ *
+ * @param[in] _config Pointer to the synthesizer configuration structure
+ * @param[in] _start Starting sample index for the update
+ * @param[in] _end Ending sample index for the update
+ *
+ * @return stm32synth_res_t Result code indicating success or failure
+ *
+ * @note The function processes samples in groups of 4 for improved efficiency
+ */
 stm32synth_res_t stm32synth_component_updateDacbuff(stm32synth_config_t *_config, uint32_t _start, uint32_t _end)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -61,16 +83,28 @@ stm32synth_res_t stm32synth_component_updateDacbuff(stm32synth_config_t *_config
 }
 
 #ifdef STM32SYNTH_FILT_CMSIS
+
+/**
+ * @brief Update low-pass filter (LPF) coefficients based on cutoff frequency
+ *
+ * Calculates and updates the biquad filter coefficients for a low-pass filter.
+ * The cutoff frequency is specified in note numbers and can be modulated by a wow value.
+ * Uses Q15 fixed-point arithmetic for efficient embedded processing.
+ *
+ * @param[in,out] _configFilter Pointer to the filter configuration structure
+ * @param[in] _wow_val Modulation value in semitones (applied to cutoff frequency)
+ *
+ * @return stm32synth_res_t Result code indicating success or failure
+ *
+ * @note Frequency is clamped to STM32SYNTH_MAX_FREQ to prevent aliasing
+ * @see stm32synth_component_updateHPF
+ * @see stm32synth_component_updateLSF
+ */
 stm32synth_res_t stm32synth_component_updateLPF(stm32synth_config_filter_t *_configFilter, int32_t _wow_val)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
 
-	float32_t freq = STM32SYNTH_TUNING *
-#ifdef STM32SYNTH_FASTMATH_ENABLE
-					 fast_pow2_bit(((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
-#else
-					 powf(2.0f, ((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
-#endif
+	float32_t freq = STM32SYNTH_TUNING * fast_exp2f(((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
 	if (freq > STM32SYNTH_MAX_FREQ)
 	{
 		freq = (float32_t)STM32SYNTH_MAX_FREQ;
@@ -95,16 +129,27 @@ stm32synth_res_t stm32synth_component_updateLPF(stm32synth_config_filter_t *_con
 	return res;
 }
 
+/**
+ * @brief Update high-pass filter (HPF) coefficients based on cutoff frequency
+ *
+ * Calculates and updates the biquad filter coefficients for a high-pass filter.
+ * The cutoff frequency is specified in note numbers and can be modulated by a wow value.
+ * Uses Q15 fixed-point arithmetic for efficient embedded processing.
+ *
+ * @param[in,out] _configFilter Pointer to the filter configuration structure
+ * @param[in] _wow_val Modulation value in semitones (applied to cutoff frequency)
+ *
+ * @return stm32synth_res_t Result code indicating success or failure
+ *
+ * @note Frequency is clamped to STM32SYNTH_MAX_FREQ to prevent aliasing
+ * @see stm32synth_component_updateLPF
+ * @see stm32synth_component_updateLSF
+ */
 stm32synth_res_t stm32synth_component_updateHPF(stm32synth_config_filter_t *_configFilter, int32_t _wow_val)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
 
-	float32_t freq = STM32SYNTH_TUNING *
-#ifdef STM32SYNTH_FASTMATH_ENABLE
-					 fast_pow2_bit(((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
-#else
-					 powf(2.0f, ((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
-#endif
+	float32_t freq = STM32SYNTH_TUNING * fast_exp2f(((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
 	if (freq > STM32SYNTH_MAX_FREQ)
 	{
 		freq = (float32_t)STM32SYNTH_MAX_FREQ;
@@ -129,16 +174,29 @@ stm32synth_res_t stm32synth_component_updateHPF(stm32synth_config_filter_t *_con
 	return res;
 }
 
+/**
+ * @brief Update low-shelf filter (LSF) coefficients based on frequency and gain
+ *
+ * Calculates and updates the biquad filter coefficients for a low-shelf filter.
+ * The shelf frequency is specified in note numbers and can be modulated by a wow value.
+ * The Q factor parameter controls the gain boost/cut. Uses Q15 fixed-point arithmetic
+ * for efficient embedded processing.
+ *
+ * @param[in,out] _configFilter Pointer to the filter configuration structure
+ * @param[in] _wow_val Modulation value in semitones (applied to shelf frequency)
+ *
+ * @return stm32synth_res_t Result code indicating success or failure
+ *
+ * @note Frequency is clamped to STM32SYNTH_MAX_FREQ to prevent aliasing
+ * @note The Q factor is interpreted as gain in dB (6dB per unit)
+ * @see stm32synth_component_updateLPF
+ * @see stm32synth_component_updateHPF
+ */
 stm32synth_res_t stm32synth_component_updateLSF(stm32synth_config_filter_t *_configFilter, int32_t _wow_val)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
 
-	float32_t freq = STM32SYNTH_TUNING *
-#ifdef STM32SYNTH_FASTMATH_ENABLE
-					 fast_pow2_bit(((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
-#else
-					 powf(2.0f, ((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
-#endif
+	float32_t freq = STM32SYNTH_TUNING * fast_exp2f(((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
 	if (freq > STM32SYNTH_MAX_FREQ)
 	{
 		freq = (float32_t)STM32SYNTH_MAX_FREQ;
@@ -148,12 +206,7 @@ stm32synth_res_t stm32synth_component_updateLSF(stm32synth_config_filter_t *_con
 	float32_t sin_omega_c, cos_omega_c;
 	arm_sin_cos_f32(omega_c, &sin_omega_c, &cos_omega_c);
 	float32_t alfa = sin_omega_c * (0.70710678118654752440084436f); // 0.70710678118654752440084436f is 1/(2 * Q), Q=1/sqrt(2)
-	float32_t shelfA =
-#ifdef STM32SYNTH_FASTMATH_ENABLE
-		fast_pow10_poly((_configFilter->para.q_factor * (6.0f / 40.0f)));
-#else
-		powf(10.0f, (_configFilter->para.q_factor * (6.0f / 40.0f)));
-#endif
+	float32_t shelfA = fast_exp10f((_configFilter->para.q_factor * (6.0f / 40.0f)));
 	float32_t beta;
 	arm_sqrt_f32(shelfA, &beta);
 	beta = 2.0f * beta * alfa;
@@ -180,12 +233,19 @@ stm32synth_res_t stm32synth_component_updateLSF(stm32synth_config_filter_t *_con
 #endif /* STM32SYNTH_FILT_CMSIS */
 
 /**
- * @brief Convert a float32_t scale factor to a q15_t fractional scale and shift for efficient multiplication
+ * @brief Convert a float32_t scale factor to a Q15 fractional scale and shift for efficient multiplication
  *
- * @param _scale
- * @param _scaleFract
- * @param _shift
- * @return stm32synth_res_t
+ * Decomposes a floating-point scale factor into a Q15 fractional component and a shift value.
+ * This allows efficient multiplication using ARM's arm_scale_q15() function without loss of precision.
+ * The scale factor is represented as: scale = scaleFract * 2^shift
+ *
+ * @param[in] _scale Input scale factor as float32_t
+ * @param[out] _scaleFract Pointer to store the Q15 fractional part (range: -32768 to 32767)
+ * @param[out] _shift Pointer to store the bit shift value (positive for scaling up)
+ *
+ * @return stm32synth_res_t Result code (STM32SYNTH_RES_OK on success)
+ *
+ * @see arm_scale_q15
  */
 stm32synth_res_t stm32synth_component_f32toq15fract(float32_t _scale, q15_t *_scaleFract, int8_t *_shift)
 {
@@ -200,26 +260,6 @@ stm32synth_res_t stm32synth_component_f32toq15fract(float32_t _scale, q15_t *_sc
 		shifted <<= 1;
 	}
 	scaleFract = (int16_t)((_scale / (float32_t)shifted) * (float32_t)STM32SYNTH_Q15_MAX);
-
-	*_shift = shift;
-	*_scaleFract = scaleFract;
-
-	return res;
-}
-
-stm32synth_res_t stm32synth_component_q15toq15fract(q15_t _scale, q15_t *_scaleFract, int8_t *_shift)
-{
-	stm32synth_res_t res = STM32SYNTH_RES_OK;
-	int8_t shift = 0;
-	q15_t scaleFract;
-	uint16_t shifted = 1;
-
-	while (shifted < _scale)
-	{
-		shift++;
-		shifted <<= 1;
-	}
-	scaleFract = (int16_t)(_scale * STM32SYNTH_Q15_MAX / shifted);
 
 	*_shift = shift;
 	*_scaleFract = scaleFract;

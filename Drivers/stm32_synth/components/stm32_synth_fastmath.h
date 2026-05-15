@@ -7,19 +7,14 @@
  * optimized for real-time audio synthesis on embedded systems.
  */
 
-// Enable fast math approximations (can be disabled for testing)
-// #define STM32SYNTH_FASTMATH_ENABLE
+// Enable fast math approximations
 
 #ifndef STM32_SYNTH_FASTMATH_H
 #define STM32_SYNTH_FASTMATH_H
 
 #include "stm32_synth.h"
 
-#ifdef STM32SYNTH_FASTMATH_ENABLE
-
-float32_t fast_pow2_bit(float32_t x);
-float32_t fast_pow10_poly(float32_t x);
-
-#endif /* STM32SYNTH_FASTMATH_ENABLE */
+float32_t fast_exp2f(float32_t x);
+float32_t fast_exp10f(float32_t x);
 
 #endif /* STM32_SYNTH_FASTMATH_H */
