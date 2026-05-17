@@ -25,7 +25,7 @@ A binary file is prepared for the controller designer, so download it and write 
 - Pan.
 - Create custom instruments setting. ((Sine, Saw, SQU) x2 /Channel)
 - I2S Stereo output.
-- Firmware Update via USB.
+- Firmware Update via USB. (Updates are available via [PC Control App for Google Chrome](https://k-omura.github.io/STM32-synthesizer/))
 
 ## Future features
 - What you want.

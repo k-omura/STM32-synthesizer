@@ -17,7 +17,11 @@
 //
 #define STM32SYNTH_COMPONENT_CHORD_DISABLEDNN 0xFFFF
 
+#ifdef STM32SYNTH_I2S
+#define STM32SYNTH_CHORD_BASE_AMP_SHIFT 6
+#else
 #define STM32SYNTH_CHORD_BASE_AMP_SHIFT 7
+#endif
 #define STM32SYNTH_CHORD_BASE_AMP (STM32SYNTH_GND_LEVEL >> STM32SYNTH_CHORD_BASE_AMP_SHIFT)
 #define STM32SYNTH_CHORD_DISTORTION_SHIFT (STM32SYNTH_AMP_MAX_BIT - STM32SYNTH_CHORD_BASE_AMP_SHIFT - 7) // 127->7bit
 
@@ -684,12 +688,29 @@ stm32synth_res_t stm32synth_chord_adsrCurve(stm32synth_config_t *_config, stm32s
     }
 
     _configChord->adsr.count += (1000 * STM32SYNTH_HALF_NUM_SAMPLING) / STM32SYNTH_SAMPLE_FREQ;
-    if (_configChord->adsr.count > adsr_time_count)
+    if (_configChord->adsr.count >= adsr_time_count)
     {
+        if (_configChord->adsr.state == STM32SYNTH_ADSRSTATE_RELEASE)
+        {
+            _configChord->adsr.state = STM32SYNTH_ADSRSTATE_DONE;
+            *_amp = 0.0f;
+            stm32synth_component_disableChord(_configChord);
+            res = STM32SYNTH_RES_NG;
+            return res;
+        }
+
         _configChord->adsr.count = 0;
         _configChord->adsr.state++;
     }
-    *_amp = fast_exp10f(-2.0f * (float32_t)_configChord->adsr.count / adsr_time);
+
+    if (adsr_time <= 0.0f)
+    {
+        *_amp = 0.0f;
+    }
+    else
+    {
+        *_amp = fast_exp10f(-2.0f * (float32_t)_configChord->adsr.count / adsr_time);
+    }
 
     switch (_configChord->adsr.state)
     {
@@ -865,7 +886,7 @@ stm32synth_res_t stm32synth_chord_addsque(stm32synth_config_t *_config, stm32syn
     q15_t scaleFract;
     stm32synth_component_f32toq15fract(squ_level, &scaleFract, &shift);
     //*/
-    q15_t level = (int16_t)(STM32SYNTH_CHORD_BASE_AMP * squ_level);
+    q15_t level = (int16_t)fast_roundf((float32_t)STM32SYNTH_CHORD_BASE_AMP * squ_level);
 
     int32_t dutyHighRad_32 = (int32_t)(squ_duty * STM32SYNTH_Q15_MAX);
     q15_t dutyHighRad = (int16_t)(2 * dutyHighRad_32 - STM32SYNTH_Q15_MAX);
@@ -920,11 +941,11 @@ stm32synth_res_t stm32synth_chord_addtrgl(stm32synth_config_t *_config, stm32syn
     {
         if (_radBuff[t] < peakPoint_q15)
         {
-            buff[t] = (int16_t)(doubel_amp_up * (float32_t)_radBuff[t] + doubel_intercept_up);
+            buff[t] = (int16_t)fast_roundf(doubel_amp_up * (float32_t)_radBuff[t] + doubel_intercept_up);
         }
         else
         {
-            buff[t] = (int16_t)(doubel_amp_down * (float32_t)_radBuff[t] - doubel_intercept_down);
+            buff[t] = (int16_t)fast_roundf(doubel_amp_down * (float32_t)_radBuff[t] - doubel_intercept_down);
         }
     }
 

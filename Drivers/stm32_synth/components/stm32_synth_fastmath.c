@@ -56,7 +56,7 @@ float32_t fast_exp2f(float32_t _x)
 
 /**
  * @brief Fast approximation of powf(10, x)
- * @param x Exponent value
+ * @param _x Exponent value
  * @return Approximation of 10^x
  */
 float32_t fast_exp10f(float32_t _x)
@@ -66,14 +66,24 @@ float32_t fast_exp10f(float32_t _x)
 }
 
 /**
+ * @brief Fast approximation of roundf
+ * @param _x Value to round
+ * @return Rounded value
+ */
+float32_t fast_roundf(float32_t _x)
+{
+    return (_x >= 0.0f) ? fast_floorf(_x + 0.5f) : fast_floorf(_x - 0.5f);
+}
+
+/**
  * @brief Fast approximation of floorf for positive and negative values
  *
- * @param x
+ * @param _x Value to floor
  * @return float32_t
  */
-static inline float32_t fast_floorf(float32_t x)
+static inline float32_t fast_floorf(float32_t _x)
 {
-    int32_t i = (int32_t)x;
-    // If x is negative and not an integer, we need to subtract 1 to get the correct floor value
-    return (float32_t)(i - (x < i));
+    int32_t i = (int32_t)_x;
+    // If _x is negative and not an integer, we need to subtract 1 to get the correct floor value
+    return (float32_t)(i - (_x < i));
 }

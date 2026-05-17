@@ -16,5 +16,6 @@
 
 float32_t fast_exp2f(float32_t x);
 float32_t fast_exp10f(float32_t x);
+float32_t fast_roundf(float32_t x);
 
 #endif /* STM32_SYNTH_FASTMATH_H */
