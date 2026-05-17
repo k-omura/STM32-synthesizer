@@ -766,7 +766,6 @@ stm32synth_res_t stm32synth_chord_makerad(stm32synth_config_t *_config, stm32syn
     float32_t freq = STM32SYNTH_TUNING * fast_exp2f(((float32_t)_nn / 3072.0f) - 5.75f);
 
     // float32_t delta_omega = freq * STM32SYNTH_DOUBLE_PI / (float32_t)STM32SYNTH_SAMPLE_FREQ;
-
     q15_t delta_omega_q15 = (q15_t)(freq * (STM32SYNTH_Q15_MAX << 1) / STM32SYNTH_SAMPLE_FREQ);
     q15_t temp = _configChord->rad[_wnum]; // init;
 
@@ -886,7 +885,8 @@ stm32synth_res_t stm32synth_chord_addsque(stm32synth_config_t *_config, stm32syn
     q15_t scaleFract;
     stm32synth_component_f32toq15fract(squ_level, &scaleFract, &shift);
     //*/
-    q15_t level = (int16_t)fast_roundf((float32_t)STM32SYNTH_CHORD_BASE_AMP * squ_level);
+    // q15_t level = (int16_t)fast_roundf((float32_t)STM32SYNTH_CHORD_BASE_AMP * squ_level);
+    q15_t level = (int16_t)((float32_t)STM32SYNTH_CHORD_BASE_AMP * squ_level);
 
     int32_t dutyHighRad_32 = (int32_t)(squ_duty * STM32SYNTH_Q15_MAX);
     q15_t dutyHighRad = (int16_t)(2 * dutyHighRad_32 - STM32SYNTH_Q15_MAX);
@@ -941,11 +941,13 @@ stm32synth_res_t stm32synth_chord_addtrgl(stm32synth_config_t *_config, stm32syn
     {
         if (_radBuff[t] < peakPoint_q15)
         {
-            buff[t] = (int16_t)fast_roundf(doubel_amp_up * (float32_t)_radBuff[t] + doubel_intercept_up);
+            // buff[t] = (int16_t)fast_roundf(doubel_amp_up * (float32_t)_radBuff[t] + doubel_intercept_up);
+            buff[t] = (int16_t)(doubel_amp_up * (float32_t)_radBuff[t] + doubel_intercept_up);
         }
         else
         {
-            buff[t] = (int16_t)fast_roundf(doubel_amp_down * (float32_t)_radBuff[t] - doubel_intercept_down);
+            // buff[t] = (int16_t)fast_roundf(doubel_amp_down * (float32_t)_radBuff[t] - doubel_intercept_down);
+            buff[t] = (int16_t)(doubel_amp_down * (float32_t)_radBuff[t] - doubel_intercept_down);
         }
     }
 
@@ -984,8 +986,8 @@ stm32synth_res_t stm32synth_chord_addnoise(stm32synth_config_t *_configg, float3
         uint16_t lo = (uint16_t)(xs_state & 0xFFFFu);
         uint16_t hi = (uint16_t)(xs_state >> 16);
 
-        buff[t] = (q15_t)((int16_t)lo);
-        buff[t + 1] = (q15_t)((int16_t)hi);
+        buff[t] = (q15_t)(*(int16_t *)&lo);
+        buff[t + 1] = (q15_t)(*(int16_t *)&hi);
     }
 
     arm_scale_q15(buff, scaleFract, shift, buff, STM32SYNTH_SAMPLE_FORFILT);
