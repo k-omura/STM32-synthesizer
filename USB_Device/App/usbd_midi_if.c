@@ -17,9 +17,10 @@
 static uint16_t MIDI_DataRx(uint8_t *msg, uint16_t length);
 static uint16_t MIDI_DataTx(uint8_t *msg, uint16_t length);
 
-USBD_MIDI_ItfTypeDef USBD_Interface_fops_FS = { MIDI_DataRx, MIDI_DataTx };
+USBD_MIDI_ItfTypeDef USBD_Interface_fops_FS = {MIDI_DataRx, MIDI_DataTx};
 
-static uint16_t MIDI_DataRx(uint8_t *msg, uint16_t length) {
+static uint16_t MIDI_DataRx(uint8_t *msg, uint16_t length)
+{
 	uint16_t cnt;
 	uint16_t msgs = length / 4;
 	uint16_t chk = length % 4;
@@ -29,7 +30,7 @@ static uint16_t MIDI_DataRx(uint8_t *msg, uint16_t length) {
 	{
 		for (cnt = 0; cnt < msgs; cnt++)
 		{
-			//stm32synth_inputMIDI(midi_message_p);
+			// stm32synth_inputMIDI(midi_message_p);
 			stm32synth_midi_writebuff(midi_message_p);
 			midi_message_p += 4;
 		}
@@ -37,26 +38,32 @@ static uint16_t MIDI_DataRx(uint8_t *msg, uint16_t length) {
 	return 0;
 }
 
-void sendMidiMessage(uint8_t *msg, uint16_t size) {
-	if (size == 4) {
+void sendMidiMessage(uint8_t *msg, uint16_t size)
+{
+	if (size == 4)
+	{
 		MIDI_DataTx(msg, size);
 	}
 }
 
-static uint16_t MIDI_DataTx(uint8_t *msg, uint16_t length) {
+static uint16_t MIDI_DataTx(uint8_t *msg, uint16_t length)
+{
 	uint32_t i = 0;
-	while (i < length) {
+	while (i < length)
+	{
 		APP_Rx_Buffer[APP_Rx_ptr_in] = *(msg + i);
 		APP_Rx_ptr_in++;
 		i++;
-		if (APP_Rx_ptr_in == APP_RX_DATA_SIZE) {
+		if (APP_Rx_ptr_in == APP_RX_DATA_SIZE)
+		{
 			APP_Rx_ptr_in = 0;
 		}
 	}
 	return USBD_OK;
 }
 
-void sendNoteOn(uint8_t ch, uint8_t note, uint8_t vel) {
+void sendNoteOn(uint8_t ch, uint8_t note, uint8_t vel)
+{
 	uint8_t buffer[4];
 
 	buffer[0] = 0x09;
@@ -66,7 +73,8 @@ void sendNoteOn(uint8_t ch, uint8_t note, uint8_t vel) {
 	sendMidiMessage(buffer, 4);
 }
 
-void sendNoteOff(uint8_t ch, uint8_t note) {
+void sendNoteOff(uint8_t ch, uint8_t note)
+{
 	uint8_t buffer[4];
 
 	buffer[0] = 0x08;
@@ -76,7 +84,8 @@ void sendNoteOff(uint8_t ch, uint8_t note) {
 	sendMidiMessage(buffer, 4);
 }
 
-void sendCtlChange(uint8_t ch, uint8_t num, uint8_t value) {
+void sendCtlChange(uint8_t ch, uint8_t num, uint8_t value)
+{
 	uint8_t buffer[4];
 
 	buffer[0] = 0x0b;
@@ -86,11 +95,11 @@ void sendCtlChange(uint8_t ch, uint8_t num, uint8_t value) {
 	sendMidiMessage(buffer, 4);
 }
 
-void processMidiMessage() {
+void processMidiMessage()
+{
 	// Rx
 	stm32synth_midi_buff2input();
 
 	// Tx
 	USBD_MIDI_SendPacket();
 }
-
