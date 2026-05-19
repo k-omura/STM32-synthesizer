@@ -893,15 +893,9 @@ stm32synth_res_t stm32synth_chord_addsque(stm32synth_config_t *_config, stm32syn
 
     for (uint16_t t = 0; t < STM32SYNTH_HALF_NUM_SAMPLING; t++)
     {
-        if (_radBuff[t] < dutyHighRad)
-        {
-            buff[t] = level;
-        }
-        else
-        {
-            buff[t] = -level;
-        }
+        buff[t] = (_radBuff[t] < dutyHighRad) ? level : -level;
     }
+
     // arm_scale_q15(buff, scaleFract, shift, buff, STM32SYNTH_HALF_NUM_SAMPLING);
     arm_add_q15(_chordBuff, buff, _chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
 

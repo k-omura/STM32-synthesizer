@@ -19,17 +19,17 @@
 #define STM32SYNTH_DRUM_TESTMODE //!< enable here to test drum sound
 
 // Parametor
-#define STM32SYNTH_TUNING 442.0f //!< A4 freq. (Hz)
+#define STM32SYNTH_TUNING (442.0f) //!< A4 freq. (Hz)
 
 // Change to suit your environment
 #ifdef STM32SYNTH_I2S
-#define STM32SYNTH_AMP_MAX 0xffff    //!< 16bit dac
-#define STM32SYNTH_AMP_MAX_BIT 15    //!< 16bit dac
-#define STM32SYNTH_SAMPLE_FREQ 32003 //!< Sampling freq. (Hz)
+#define STM32SYNTH_AMP_MAX (0xffff)    //!< 16bit dac
+#define STM32SYNTH_AMP_MAX_BIT (15)    //!< 16bit dac
+#define STM32SYNTH_SAMPLE_FREQ (32003) //!< Sampling freq. (Hz)
 #else
-#define STM32SYNTH_AMP_MAX 0xfff     //!< 12bit dac
-#define STM32SYNTH_AMP_MAX_BIT 11    //!< 12bit dac
-#define STM32SYNTH_SAMPLE_FREQ 40000 //!< Sampling freq. (Hz)
-#endif                               /* STM32SYNTH_I2S */
+#define STM32SYNTH_AMP_MAX (0xfff)     //!< 12bit dac
+#define STM32SYNTH_AMP_MAX_BIT (11)    //!< 12bit dac
+#define STM32SYNTH_SAMPLE_FREQ (40000) //!< Sampling freq. (Hz)
+#endif                                 /* STM32SYNTH_I2S */
 
 #endif /* STM32_SYNTH_USERPARAM_H_ */
