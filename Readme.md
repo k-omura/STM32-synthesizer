@@ -95,7 +95,7 @@ A binary file is prepared for the controller designer, so download it and write 
 ## How to edit this project with STM32CubeIDE
 1. Create a STM32 project with .ioc.  
 2. Add the synthesizer driver and USB-MIDI driver to the tree.
-3. Add CMSIS-DSP.  
+3. Add [CMSIS-DSP](https://github.com/ARM-software/CMSIS-DSP/releases/tag/v1.17.0).  
 
 ### Please add the following directories and files using STM32CubeMX etc.
 - Driver/CMSIS/
