@@ -17,25 +17,25 @@ stm32synth_res_t stm32_synth_goto_dfu(void)
 	__disable_irq();
 
 	// Disable Systick timer
-    SysTick->CTRL = 0;
-    SysTick->LOAD = 0;
-    SysTick->VAL = 0;
+	SysTick->CTRL = 0;
+	SysTick->LOAD = 0;
+	SysTick->VAL = 0;
 
 	// Set the clock to the default state
 	HAL_RCC_DeInit();
 
 	// Clear Interrupt Enable Register & Interrupt Pending Register
-    for (uint16_t i = 0; i < sizeof(NVIC->ICER) / sizeof(NVIC->ICER[0]); i++)
-    {
-        NVIC->ICER[i] = 0xFFFFFFFF;
-        NVIC->ICPR[i] = 0xFFFFFFFF;
-    }
+	for (uint16_t i = 0; i < sizeof(NVIC->ICER) / sizeof(NVIC->ICER[0]); i++)
+	{
+		NVIC->ICER[i] = 0xFFFFFFFF;
+		NVIC->ICPR[i] = 0xFFFFFFFF;
+	}
 
 	// Re-enable all interrupts
 	__enable_irq();
 
 	// Set up the jump to booloader address + 4
-	SysMemBootJump = (void (*)(void)) (*((uint32_t *) ((SYSTEM_MEMORY_RESET_VECTOR + 4))));
+	SysMemBootJump = (void (*)(void))(*((uint32_t *)((SYSTEM_MEMORY_RESET_VECTOR + 4))));
 
 	// Set the main stack pointer to the bootloader stack
 	__set_MSP(*(uint32_t *)SYSTEM_MEMORY_RESET_VECTOR);

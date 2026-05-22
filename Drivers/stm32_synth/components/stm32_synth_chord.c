@@ -15,20 +15,20 @@
 #include "components/stm32_synth_fastmath.h"
 
 //
-#define STM32SYNTH_COMPONENT_CHORD_DISABLEDNN 0xFFFF
+#define STM32SYNTH_COMPONENT_CHORD_DISABLEDNN 0xFFFF //!< if note num is this, chord is disabled
 
 #ifdef STM32SYNTH_I2S
-#define STM32SYNTH_CHORD_BASE_AMP_SHIFT 6
+#define STM32SYNTH_CHORD_BASE_AMP_SHIFT 6 //!< if I2S, 6bit shift to use whole range of amp. (12bit->6bit, 16bit->10bit)
 #else
-#define STM32SYNTH_CHORD_BASE_AMP_SHIFT 7
+#define STM32SYNTH_CHORD_BASE_AMP_SHIFT 7 //!< if not I2S, 7bit shift to use whole range of amp. (12bit->5bit)
 #endif
-#define STM32SYNTH_CHORD_BASE_AMP (STM32SYNTH_GND_LEVEL >> STM32SYNTH_CHORD_BASE_AMP_SHIFT)
-#define STM32SYNTH_CHORD_DISTORTION_SHIFT (STM32SYNTH_AMP_MAX_BIT - STM32SYNTH_CHORD_BASE_AMP_SHIFT - 7) // 127->7bit
+#define STM32SYNTH_CHORD_BASE_AMP (STM32SYNTH_GND_LEVEL >> STM32SYNTH_CHORD_BASE_AMP_SHIFT)              //!< base amp for chord, shift to use whole range of amp. (12bit->5bit)
+#define STM32SYNTH_CHORD_DISTORTION_SHIFT (STM32SYNTH_AMP_MAX_BIT - STM32SYNTH_CHORD_BASE_AMP_SHIFT - 7) //!< distortion shift, 7bit for distortion curve (127->7bit)
 
-#define STM32SYNTH_CHORD_DRUM_TYPE_SIN (0b00000001)
-#define STM32SYNTH_CHORD_DRUM_TYPE_SQU (0b00000010)
-#define STM32SYNTH_CHORD_DRUM_TYPE_TRI (0b00000100)
-#define STM32SYNTH_CHORD_DRUM_TYPE_NOISE (0b00001000)
+#define STM32SYNTH_CHORD_DRUM_TYPE_SIN (0b00000001)   //!< if this bit is 1, add sine wave to drum chord
+#define STM32SYNTH_CHORD_DRUM_TYPE_SQU (0b00000010)   //!< if this bit is 1, add square wave to drum chord
+#define STM32SYNTH_CHORD_DRUM_TYPE_TRI (0b00000100)   //!< if this bit is 1, add triangle wave to drum chord
+#define STM32SYNTH_CHORD_DRUM_TYPE_NOISE (0b00001000) //!< if this bit is 1, add noise to drum chord
 
 // private functions
 stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_pbuff, stm32synth_update_half_t _half);
@@ -40,6 +40,7 @@ stm32synth_res_t stm32synth_chord_addsine(stm32synth_config_t *_config, stm32syn
 stm32synth_res_t stm32synth_chord_addsque(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum);
 stm32synth_res_t stm32synth_chord_addtrgl(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum);
 stm32synth_res_t stm32synth_chord_addnoise(stm32synth_config_t *_config, float32_t _amp, q15_t *_chordBuff);
+stm32synth_res_t stm32synth_chord_addDither(q15_t *_chordBuff);
 
 // private variables
 static stm32synth_chord_t chords[STM32SYNTH_MAX_CHORD];
@@ -358,6 +359,9 @@ stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, s
 #else
     arm_scale_q15((chordsBuff + STM32SYNTH_PRE_SAMPLE), scaleFract, shift, mbuff_p, STM32SYNTH_HALF_NUM_SAMPLING);
 #endif /* STM32SYNTH_I2S */
+
+    // Add dithering
+    stm32synth_chord_addDither(mbuff_p);
 
     // Reverb
 #ifdef STM32SYNTH_REVERB
@@ -951,7 +955,7 @@ stm32synth_res_t stm32synth_chord_addtrgl(stm32synth_config_t *_config, stm32syn
     return res;
 }
 
-stm32synth_res_t stm32synth_chord_addnoise(stm32synth_config_t *_configg, float32_t _amp, q15_t *_chordBuff)
+stm32synth_res_t stm32synth_chord_addnoise(stm32synth_config_t *_config, float32_t _amp, q15_t *_chordBuff)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
 
@@ -986,6 +990,38 @@ stm32synth_res_t stm32synth_chord_addnoise(stm32synth_config_t *_configg, float3
 
     arm_scale_q15(buff, scaleFract, shift, buff, STM32SYNTH_SAMPLE_FORFILT);
     arm_add_q15(_chordBuff, buff, _chordBuff, STM32SYNTH_SAMPLE_FORFILT);
+
+    return res;
+}
+
+stm32synth_res_t stm32synth_chord_addDither(q15_t *_chordBuff)
+{
+    stm32synth_res_t res = STM32SYNTH_RES_OK;
+
+    q15_t *chord = _chordBuff;
+
+    // lightweight rand: xorshift32
+    static uint32_t xs_state = 0;
+    if (xs_state == 0)
+    {
+        xs_state = 0x5A5A5A5Au; // seed
+    }
+
+    for (uint16_t t = 0; t < STM32SYNTH_HALF_NUM_SAMPLING; t += 16)
+    {
+        // xorshift32 -- 3 xor/shift ops
+        xs_state ^= xs_state << 13;
+        xs_state ^= xs_state >> 17;
+        xs_state ^= xs_state << 5;
+
+        // 2-bit values extracted from 32-bit state for 16 samples
+        for (uint8_t i = 0; i < 16; i++)
+        {
+            uint8_t bit2 = (uint8_t)((xs_state >> (2 * i)) & 0x3u);
+            int8_t dither = (int8_t)bit2 - 1; // 0→-1, 1→0, 2→1, 3→2
+            *chord++ += (q15_t)dither;
+        }
+    }
 
     return res;
 }

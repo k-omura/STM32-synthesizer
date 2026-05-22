@@ -27,22 +27,15 @@
 #define STM32SYNTH_HALF_NUM_SAMPLING_BY_4 (STM32SYNTH_HALF_NUM_SAMPLING >> 2)                 //!< STM32SYNTH_HALF_NUM_SAMPLING / 4
 #define STM32SYNTH_NUM_SAMPLING (STM32SYNTH_HALF_NUM_SAMPLING + STM32SYNTH_HALF_NUM_SAMPLING) //!< buff size for mono
 #define STM32SYNTH_NUM_I2SBUFF (STM32SYNTH_NUM_SAMPLING + STM32SYNTH_NUM_SAMPLING)            //!< buff size for i2s (L+R)
-#define STM32SYNTH_PRE_SAMPLE (100)                                                           //!< number of samples for pre-sampling (for filter, reverb, etc.)
+#define STM32SYNTH_PRE_SAMPLE (100)                                                           //!< number of samples for pre-sampling (for filter)
 #define STM32SYNTH_MAX_FREQ (STM32SYNTH_SAMPLE_FREQ >> 1)                                     //!< maximum frequency (Hz)
 #define STM32SYNTH_MAX_FREQ_NOTE (34579)                                                      //!< maximum frequency note
 #define STM32SYNTH_MIN_FREQ (20)                                                              //!< minimum frequency (Hz)
 #define STM32SYNTH_SAMPLE_FORFILT (STM32SYNTH_HALF_NUM_SAMPLING + STM32SYNTH_PRE_SAMPLE)      //!< number of samples for filter
 #define STM32SYNTH_MAX_CHORD (24)                                                             //!< maximum number of chords
-#define STM32SYNTH_HALF_CHORD (STM32SYNTH_MAX_CHORD >> 1)                                     //!< half the maximum number of chords
-
-#define STM32SYNTH_M_PIF32 (3.141592653589793f)   //!< Pi for float32
-#define STM32SYNTH_DOUBLE_PI (6.283185307179586f) //!< Double Pi for float32
-
-#define STM32SYNTH_Q15_RANGE (0xFFFF) //!< Range of q15_t (16-bit signed fixed point)
-#define STM32SYNTH_Q15_MAX (0x7FFF)   //!< Maximum positive value of q15_t (32767)
-
-#define STM32SYNTH_CHANNEL_NUMBER (16)       //!< Number of MIDI channels
-#define STM32SYNTH_WAVEFORM_NUM_PERCHORD (2) //!< Number of waveforms per chord (e.g., sine and square)
+#define STM32SYNTH_CHANNEL_NUMBER (16)                                                        //!< Number of MIDI channels
+#define STM32SYNTH_WAVEFORM_NUM_PERCHORD (2)                                                  //!< Number of waveforms per chord
+#define STM32SYNTH_REVERB_NUM (4)                                                             //!< Number of reverb buffers
 
 #ifndef STM32SYNTH_DRUM_TESTMODE
 #define STM32SYNTH_DRUMCHORD_NUMBER (47) //!< Number of drum chords (must be less than STM32SYNTH_MAX_CHORD)
@@ -50,7 +43,10 @@
 #define STM32SYNTH_DRUMCHORD_NUMBER (48) //!< Number of drum chords (must be less than STM32SYNTH_MAX_CHORD). One extra for test mode.
 #endif                                   /* STM32SYNTH_DRUM_TESTMODE */
 
-#define STM32SYNTH_REVERB_NUM (4) //!< Number of reverb buffers (must be less than STM32SYNTH_MAX_CHORD)
+#define STM32SYNTH_M_PIF32 (3.141592653589793f)   //!< Pi for float32
+#define STM32SYNTH_DOUBLE_PI (6.283185307179586f) //!< Double Pi for float32
+#define STM32SYNTH_Q15_RANGE (0xFFFF)             //!< Range of q15_t (16-bit signed fixed point)
+#define STM32SYNTH_Q15_MAX (0x7FFF)               //!< Maximum positive value of q15_t (32767)
 
 //- user start
 //- user end
