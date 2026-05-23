@@ -41,6 +41,7 @@ stm32synth_res_t stm32synth_chord_addsque(stm32synth_config_t *_config, stm32syn
 stm32synth_res_t stm32synth_chord_addtrgl(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum);
 stm32synth_res_t stm32synth_chord_addnoise(stm32synth_config_t *_config, float32_t _amp, q15_t *_chordBuff);
 stm32synth_res_t stm32synth_chord_addDither(q15_t *_chordBuff);
+float32_t stm32synth_chord_exp_neg2_ratio(uint32_t _count, uint32_t _time_ms);
 
 // private variables
 static stm32synth_chord_t chords[STM32SYNTH_MAX_CHORD];
@@ -51,13 +52,8 @@ static const stm32synth_config_drum_t drumConfigList[STM32SYNTH_DRUMCHORD_NUMBER
 static stm32synth_config_drum_t drumConfigList[STM32SYNTH_DRUMCHORD_NUMBER];
 #endif /* STM32SYNTH_DRUM_TESTMODE */
 
-#ifndef STM32SYNTH_SIN_LUT
-// CORDIC instance, config
-static CORDIC_HandleTypeDef *cordicHW;
-#else
-// sine look up table
-static const q15_t sine_lut[256];
-#endif /* STM32SYNTH_SIN_LUT */
+static const q15_t sine_lut[1024];          //<! sine look up table 1024 samples for one cycle, full range of q15_t (0 to 32767 to -32768 to 0)
+static const float32_t exp_neg2_table[257]; //<! exp(-2 * x) table for x=0 to 1, 256 steps, used for ADSR curve
 
 stm32synth_res_t stm32synth_component_testChord(stm32synth_config_t *_config)
 {
@@ -383,28 +379,6 @@ stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, s
     return res;
 }
 
-#ifndef STM32SYNTH_SIN_LUT
-stm32synth_res_t stm32synth_component_initCORDIC(CORDIC_HandleTypeDef *_cordicHW)
-{
-    stm32synth_res_t res = STM32SYNTH_RES_OK;
-    cordicHW = _cordicHW;
-
-    CORDIC_ConfigTypeDef cordicConfig;
-
-    cordicConfig.Function = CORDIC_FUNCTION_SINE;
-    cordicConfig.Precision = CORDIC_PRECISION_2CYCLES;
-    cordicConfig.Scale = CORDIC_SCALE_0;
-    cordicConfig.NbWrite = CORDIC_NBWRITE_1;
-    cordicConfig.NbRead = CORDIC_NBREAD_1;
-    cordicConfig.InSize = CORDIC_OUTSIZE_16BITS;
-    cordicConfig.OutSize = CORDIC_OUTSIZE_16BITS;
-
-    HAL_CORDIC_Configure(cordicHW, &cordicConfig);
-
-    return res;
-}
-#endif /* STM32SYNTH_SIN_LUT */
-
 //--------------------------------------------------------------------------------------------------------
 stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_pbuff, stm32synth_update_half_t _half)
 {
@@ -713,7 +687,8 @@ stm32synth_res_t stm32synth_chord_adsrCurve(stm32synth_config_t *_config, stm32s
     }
     else
     {
-        *_amp = fast_exp10f(-2.0f * (float32_t)_configChord->adsr.count / adsr_time);
+        //*_amp = stm32synth_fast_exp10f(-2.0f * (float32_t)_configChord->adsr.count / adsr_time);
+        *_amp = stm32synth_chord_exp_neg2_ratio((uint32_t)_configChord->adsr.count, (uint32_t)adsr_time_count);
     }
 
     switch (_configChord->adsr.state)
@@ -758,7 +733,8 @@ stm32synth_res_t stm32synth_chord_envelope(stm32synth_config_envelopec_t *_envel
     }
 
     (*_envelopeCount) += (1000 * STM32SYNTH_HALF_NUM_SAMPLING) / STM32SYNTH_SAMPLE_FREQ;
-    (*_outval) = _envelopec->finish_value + (int16_t)((float32_t)(-_envelopec->finish_value) * fast_exp10f(-2.0f * (float32_t)(*_envelopeCount) / (float32_t)_envelopec->time_ms));
+    //(*_outval) = _envelopec->finish_value + (int16_t)((float32_t)(-_envelopec->finish_value) * stm32synth_fast_exp10f(-2.0f * (float32_t)(*_envelopeCount) / (float32_t)_envelopec->time_ms));
+    (*_outval) = _envelopec->finish_value + (int16_t)((float32_t)(-_envelopec->finish_value) * stm32synth_chord_exp_neg2_ratio(*_envelopeCount, (uint32_t)_envelopec->time_ms));
 
     return res;
 }
@@ -767,7 +743,7 @@ stm32synth_res_t stm32synth_chord_makerad(stm32synth_config_t *_config, stm32syn
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
 
-    float32_t freq = STM32SYNTH_TUNING * fast_exp2f(((float32_t)_nn / 3072.0f) - 5.75f);
+    float32_t freq = STM32SYNTH_TUNING * stm32synth_fast_exp2f(((float32_t)_nn / 3072.0f) - 5.75f);
 
     // float32_t delta_omega = freq * STM32SYNTH_DOUBLE_PI / (float32_t)STM32SYNTH_SAMPLE_FREQ;
     q15_t delta_omega_q15 = (q15_t)(freq * (STM32SYNTH_Q15_MAX << 1) / STM32SYNTH_SAMPLE_FREQ);
@@ -803,58 +779,24 @@ stm32synth_res_t stm32synth_chord_addsine(stm32synth_config_t *_config, stm32syn
     q15_t scaleFract;
     stm32synth_component_f32toq15fract(_config->waveform[_configChord->channel][_wnum].sin_level / (float32_t)(1 << (STM32SYNTH_CHORD_BASE_AMP_SHIFT - 1)), &scaleFract, &shift);
 
-#ifndef STM32SYNTH_SIN_LUT
-    // CORDIC
-
-    // Baremetal Zero-Overhead mode
-    q15_t *p_tmp_in_buff = (q15_t *)_radBuff;
-    q15_t *p_tmp_out_buff = (q15_t *)buff;
-
-    // Write of input data in Write Data register, and increment input buffer pointer
-    cordicHW->Instance->WDATA = (int32_t)((*p_tmp_in_buff++) << 16);
-    for (uint16_t index = (STM32SYNTH_HALF_NUM_SAMPLING - 1); index > 0; index--)
-    {
-        cordicHW->Instance->WDATA = (int32_t)((*p_tmp_in_buff++) << 16);
-        (*p_tmp_out_buff++) = (q15_t)(cordicHW->Instance->RDATA & 0x0000FFFF);
-    }
-    (*p_tmp_out_buff) = (q15_t)(cordicHW->Instance->RDATA & 0x0000FFFF);
-
-#else
     q15_t *buff_p = buff;
     q15_t *radBuff_p = _radBuff;
 
     for (uint16_t t = 0; t < STM32SYNTH_HALF_NUM_SAMPLING; t++)
     {
         uint16_t phase = (uint16_t)(*radBuff_p++);
-        uint16_t quadrant = (uint16_t)(phase >> 14); // quadrant: top 2 bits of 16-bit phase
-        uint16_t pos = (uint16_t)(phase & 0x3FFFu);  // position within quadrant: lower 14 bits (0..16383)
-
-        // if in mirrored quadrant (1 or 3), mirror the position for lookup
-        if (quadrant & 1u)
-        {
-            pos = (uint16_t)(0x3FFFu - pos);
-        }
-
-        // index into 256-entry LUT and 6-bit fractional part
-        uint16_t idx = (uint16_t)(pos >> 6);
-        uint16_t frac = (uint16_t)(pos & 0x3Fu);
+        uint16_t idx = (uint16_t)(phase >> 6);     // 10-bit index into 1024-entry table
+        uint16_t frac = (uint16_t)(phase & 0x3Fu); // 6-bit fractional position
 
         int32_t v0 = (int32_t)sine_lut[idx];
-        int32_t v1 = (int32_t)((idx < 255) ? sine_lut[idx + 1] : sine_lut[255]);
+        int32_t v1 = (int32_t)sine_lut[(idx + 1u) & 0x03FFu];
         int32_t diff = v1 - v0;
 
         // linear interpolation: v = v0 + diff * frac / 64
         int32_t interp = v0 + ((diff * (int32_t)frac) >> 6);
 
-        // apply sign for lower half of circle (quadrant 2 and 3 are negative)
-        if (quadrant >= 2u)
-        {
-            interp = -interp;
-        }
-
         *buff_p++ = (q15_t)interp;
     }
-#endif /* STM32SYNTH_SIN_LUT */
 
     arm_scale_q15(buff, scaleFract, shift, buff, STM32SYNTH_HALF_NUM_SAMPLING);
     arm_add_q15(_chordBuff, buff, _chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
@@ -889,7 +831,7 @@ stm32synth_res_t stm32synth_chord_addsque(stm32synth_config_t *_config, stm32syn
     q15_t scaleFract;
     stm32synth_component_f32toq15fract(squ_level, &scaleFract, &shift);
     //*/
-    // q15_t level = (int16_t)fast_roundf((float32_t)STM32SYNTH_CHORD_BASE_AMP * squ_level);
+    // q15_t level = (int16_t)stm32synth_fast_roundf((float32_t)STM32SYNTH_CHORD_BASE_AMP * squ_level);
     q15_t level = (int16_t)((float32_t)STM32SYNTH_CHORD_BASE_AMP * squ_level);
 
     int32_t dutyHighRad_32 = (int32_t)(squ_duty * STM32SYNTH_Q15_MAX);
@@ -939,12 +881,12 @@ stm32synth_res_t stm32synth_chord_addtrgl(stm32synth_config_t *_config, stm32syn
     {
         if (_radBuff[t] < peakPoint_q15)
         {
-            // buff[t] = (int16_t)fast_roundf(doubel_amp_up * (float32_t)_radBuff[t] + doubel_intercept_up);
+            // buff[t] = (int16_t)stm32synth_fast_roundf(doubel_amp_up * (float32_t)_radBuff[t] + doubel_intercept_up);
             buff[t] = (int16_t)(doubel_amp_up * (float32_t)_radBuff[t] + doubel_intercept_up);
         }
         else
         {
-            // buff[t] = (int16_t)fast_roundf(doubel_amp_down * (float32_t)_radBuff[t] - doubel_intercept_down);
+            // buff[t] = (int16_t)stm32synth_fast_roundf(doubel_amp_down * (float32_t)_radBuff[t] - doubel_intercept_down);
             buff[t] = (int16_t)(doubel_amp_down * (float32_t)_radBuff[t] - doubel_intercept_down);
         }
     }
@@ -1024,6 +966,36 @@ stm32synth_res_t stm32synth_chord_addDither(q15_t *_chordBuff)
     }
 
     return res;
+}
+
+/**
+ * @brief Calculate the exponential decay ratio for ADSR envelope using a precomputed table and linear interpolation.
+ *
+ * @param _count
+ * @param _time_ms
+ * @return float32_t
+ */
+float32_t stm32synth_chord_exp_neg2_ratio(uint32_t _count, uint32_t _time_ms)
+{
+    if ((_time_ms == 0u) || (_count == 0u))
+    {
+        return 1.0f;
+    }
+
+    if (_count >= _time_ms)
+    {
+        return exp_neg2_table[256];
+    }
+
+    uint32_t idx = (uint32_t)((uint64_t)_count * 256u / _time_ms);
+    if (idx >= 256u)
+    {
+        return exp_neg2_table[256];
+    }
+
+    uint32_t next = idx + 1u;
+    float32_t ratio = ((float32_t)_count * 256.0f / (float32_t)_time_ms) - (float32_t)idx;
+    return exp_neg2_table[idx] + (exp_neg2_table[next] - exp_neg2_table[idx]) * ratio;
 }
 
 #ifdef STM32SYNTH_DRUM_TESTMODE
@@ -1127,39 +1099,167 @@ static const stm32synth_config_drum_t drumConfigList[STM32SYNTH_DRUMCHORD_NUMBER
     {STM32SYNTH_MIDINN_NONE, 0, STM32SYNTH_MIDINN_FILTER_DISABLE, STM32SYNTH_MIDINN_FILTER_DISABLE, STM32SYNTH_CHORD_DRUM_TYPE_NOISE, 128, 0.717, 0.717, 1, 0},                  // NoteNum:81 Open Triangle
 };
 
-#ifdef STM32SYNTH_SIN_LUT
-// Define sine lookup table (quarter wave 0 to π/2)
-static const q15_t sine_lut[256] = {
+static const q15_t sine_lut[1024] = {
     0x0000, 0x00C9, 0x0192, 0x025B, 0x0324, 0x03ED, 0x04B6, 0x057F,
     0x0648, 0x0711, 0x07D9, 0x08A2, 0x096A, 0x0A33, 0x0AFB, 0x0BC4,
     0x0C8C, 0x0D54, 0x0E1C, 0x0EE3, 0x0FAB, 0x1072, 0x113A, 0x1201,
-    0x12C8, 0x138F, 0x1456, 0x151C, 0x15E2, 0x16A8, 0x176E, 0x1833,
+    0x12C8, 0x138F, 0x1455, 0x151C, 0x15E2, 0x16A8, 0x176E, 0x1833,
     0x18F9, 0x19BE, 0x1A82, 0x1B47, 0x1C0B, 0x1CCF, 0x1D93, 0x1E57,
     0x1F1A, 0x1FDD, 0x209F, 0x2161, 0x2223, 0x22E5, 0x23A6, 0x2467,
     0x2528, 0x25E8, 0x26A8, 0x2767, 0x2826, 0x28E5, 0x29A3, 0x2A61,
     0x2B1F, 0x2BDC, 0x2C99, 0x2D55, 0x2E11, 0x2ECC, 0x2F87, 0x3041,
-    0x30FB, 0x31B5, 0x326E, 0x3326, 0x33DE, 0x3496, 0x354D, 0x3604,
+    0x30FB, 0x31B5, 0x326E, 0x3326, 0x33DF, 0x3496, 0x354D, 0x3604,
     0x36BA, 0x376F, 0x3824, 0x38D9, 0x398C, 0x3A40, 0x3AF2, 0x3BA5,
     0x3C56, 0x3D07, 0x3DB8, 0x3E68, 0x3F17, 0x3FC5, 0x4073, 0x4121,
     0x41CE, 0x427A, 0x4325, 0x43D0, 0x447A, 0x4524, 0x45CD, 0x4675,
-    0x471C, 0x47C3, 0x4869, 0x490F, 0x49B4, 0x4A58, 0x4AFB, 0x4B9E,
-    0x4C40, 0x4CE1, 0x4D81, 0x4E21, 0x4EC0, 0x4F5E, 0x4FFB, 0x5098,
-    0x5134, 0x51CF, 0x5269, 0x5302, 0x539B, 0x5433, 0x54CA, 0x5560,
+    0x471C, 0x47C3, 0x4869, 0x490F, 0x49B4, 0x4A58, 0x4AFB, 0x4B9D,
+    0x4C3F, 0x4CE0, 0x4D81, 0x4E20, 0x4EBF, 0x4F5D, 0x4FFB, 0x5097,
+    0x5133, 0x51CE, 0x5268, 0x5302, 0x539B, 0x5432, 0x54C9, 0x5560,
     0x55F5, 0x568A, 0x571D, 0x57B0, 0x5842, 0x58D3, 0x5964, 0x59F3,
-    0x5A82, 0x5B10, 0x5B9D, 0x5C29, 0x5CB4, 0x5D3E, 0x5DC7, 0x5E50,
-    0x5ED7, 0x5F5E, 0x5FE3, 0x6068, 0x60EC, 0x616F, 0x61F1, 0x6272,
-    0x62F2, 0x6371, 0x63EF, 0x646C, 0x64E8, 0x6563, 0x65DD, 0x6656,
+    0x5A82, 0x5B0F, 0x5B9C, 0x5C28, 0x5CB3, 0x5D3E, 0x5DC7, 0x5E4F,
+    0x5ED7, 0x5F5D, 0x5FE3, 0x6068, 0x60EB, 0x616E, 0x61F0, 0x6271,
+    0x62F1, 0x6370, 0x63EE, 0x646C, 0x64E8, 0x6563, 0x65DD, 0x6656,
     0x66CF, 0x6746, 0x67BC, 0x6832, 0x68A6, 0x6919, 0x698B, 0x69FD,
-    0x6A6D, 0x6ADC, 0x6B4A, 0x6BB8, 0x6C24, 0x6C8F, 0x6CF9, 0x6D62,
-    0x6DCA, 0x6E31, 0x6E97, 0x6EFC, 0x6F5F, 0x6FC2, 0x7023, 0x7083,
+    0x6A6D, 0x6ADC, 0x6B4A, 0x6BB7, 0x6C23, 0x6C8E, 0x6CF8, 0x6D61,
+    0x6DC9, 0x6E30, 0x6E96, 0x6EFB, 0x6F5E, 0x6FC1, 0x7022, 0x7083,
     0x70E2, 0x7140, 0x719D, 0x71F9, 0x7254, 0x72AE, 0x7307, 0x735E,
-    0x73B5, 0x740A, 0x745E, 0x74B1, 0x7504, 0x7555, 0x75A5, 0x75F3,
+    0x73B5, 0x740A, 0x745F, 0x74B2, 0x7504, 0x7555, 0x75A5, 0x75F3,
     0x7641, 0x768D, 0x76D8, 0x7722, 0x776B, 0x77B3, 0x77FA, 0x783F,
-    0x7884, 0x78C7, 0x7909, 0x794A, 0x798A, 0x79C9, 0x7A06, 0x7A42,
-    0x7A7D, 0x7AB6, 0x7AEF, 0x7B26, 0x7B5C, 0x7B91, 0x7BC5, 0x7BF8,
+    0x7884, 0x78C7, 0x7909, 0x794A, 0x7989, 0x79C8, 0x7A05, 0x7A41,
+    0x7A7C, 0x7AB6, 0x7AEE, 0x7B26, 0x7B5C, 0x7B91, 0x7BC5, 0x7BF8,
     0x7C29, 0x7C59, 0x7C88, 0x7CB6, 0x7CE3, 0x7D0E, 0x7D39, 0x7D62,
     0x7D89, 0x7DB0, 0x7DD5, 0x7DFA, 0x7E1D, 0x7E3E, 0x7E5F, 0x7E7E,
     0x7E9C, 0x7EB9, 0x7ED5, 0x7EEF, 0x7F09, 0x7F21, 0x7F37, 0x7F4D,
     0x7F61, 0x7F74, 0x7F86, 0x7F97, 0x7FA6, 0x7FB4, 0x7FC1, 0x7FCD,
-    0x7FD8, 0x7FE1, 0x7FE9, 0x7FF0, 0x7FF6, 0x7FFA, 0x7FFD, 0x7FFF};
-#endif /* STM32SYNTH_SIN_LUT */
+    0x7FD8, 0x7FE1, 0x7FE9, 0x7FF0, 0x7FF5, 0x7FF9, 0x7FFD, 0x7FFE,
+    0x7FFF, 0x7FFE, 0x7FFD, 0x7FF9, 0x7FF5, 0x7FF0, 0x7FE9, 0x7FE1,
+    0x7FD8, 0x7FCD, 0x7FC1, 0x7FB4, 0x7FA6, 0x7F97, 0x7F86, 0x7F74,
+    0x7F61, 0x7F4D, 0x7F37, 0x7F21, 0x7F09, 0x7EEF, 0x7ED5, 0x7EB9,
+    0x7E9C, 0x7E7E, 0x7E5F, 0x7E3E, 0x7E1D, 0x7DFA, 0x7DD5, 0x7DB0,
+    0x7D89, 0x7D62, 0x7D39, 0x7D0E, 0x7CE3, 0x7CB6, 0x7C88, 0x7C59,
+    0x7C29, 0x7BF8, 0x7BC5, 0x7B91, 0x7B5C, 0x7B26, 0x7AEE, 0x7AB6,
+    0x7A7C, 0x7A41, 0x7A05, 0x79C8, 0x7989, 0x794A, 0x7909, 0x78C7,
+    0x7884, 0x783F, 0x77FA, 0x77B3, 0x776B, 0x7722, 0x76D8, 0x768D,
+    0x7641, 0x75F3, 0x75A5, 0x7555, 0x7504, 0x74B2, 0x745F, 0x740A,
+    0x73B5, 0x735E, 0x7307, 0x72AE, 0x7254, 0x71F9, 0x719D, 0x7140,
+    0x70E2, 0x7083, 0x7022, 0x6FC1, 0x6F5E, 0x6EFB, 0x6E96, 0x6E30,
+    0x6DC9, 0x6D61, 0x6CF8, 0x6C8E, 0x6C23, 0x6BB7, 0x6B4A, 0x6ADC,
+    0x6A6D, 0x69FD, 0x698B, 0x6919, 0x68A6, 0x6832, 0x67BC, 0x6746,
+    0x66CF, 0x6656, 0x65DD, 0x6563, 0x64E8, 0x646C, 0x63EE, 0x6370,
+    0x62F1, 0x6271, 0x61F0, 0x616E, 0x60EB, 0x6068, 0x5FE3, 0x5F5D,
+    0x5ED7, 0x5E4F, 0x5DC7, 0x5D3E, 0x5CB3, 0x5C28, 0x5B9C, 0x5B0F,
+    0x5A82, 0x59F3, 0x5964, 0x58D3, 0x5842, 0x57B0, 0x571D, 0x568A,
+    0x55F5, 0x5560, 0x54C9, 0x5432, 0x539B, 0x5302, 0x5268, 0x51CE,
+    0x5133, 0x5097, 0x4FFB, 0x4F5D, 0x4EBF, 0x4E20, 0x4D81, 0x4CE0,
+    0x4C3F, 0x4B9D, 0x4AFB, 0x4A58, 0x49B4, 0x490F, 0x4869, 0x47C3,
+    0x471C, 0x4675, 0x45CD, 0x4524, 0x447A, 0x43D0, 0x4325, 0x427A,
+    0x41CE, 0x4121, 0x4073, 0x3FC5, 0x3F17, 0x3E68, 0x3DB8, 0x3D07,
+    0x3C56, 0x3BA5, 0x3AF2, 0x3A40, 0x398C, 0x38D9, 0x3824, 0x376F,
+    0x36BA, 0x3604, 0x354D, 0x3496, 0x33DF, 0x3326, 0x326E, 0x31B5,
+    0x30FB, 0x3041, 0x2F87, 0x2ECC, 0x2E11, 0x2D55, 0x2C99, 0x2BDC,
+    0x2B1F, 0x2A61, 0x29A3, 0x28E5, 0x2826, 0x2767, 0x26A8, 0x25E8,
+    0x2528, 0x2467, 0x23A6, 0x22E5, 0x2223, 0x2161, 0x209F, 0x1FDD,
+    0x1F1A, 0x1E57, 0x1D93, 0x1CCF, 0x1C0B, 0x1B47, 0x1A82, 0x19BE,
+    0x18F9, 0x1833, 0x176E, 0x16A8, 0x15E2, 0x151C, 0x1455, 0x138F,
+    0x12C8, 0x1201, 0x113A, 0x1072, 0x0FAB, 0x0EE3, 0x0E1C, 0x0D54,
+    0x0C8C, 0x0BC4, 0x0AFB, 0x0A33, 0x096A, 0x08A2, 0x07D9, 0x0711,
+    0x0648, 0x057F, 0x04B6, 0x03ED, 0x0324, 0x025B, 0x0192, 0x00C9,
+    0x0000, -0x00C9, -0x0192, -0x025B, -0x0324, -0x03ED, -0x04B6, -0x057F,
+    -0x0648, -0x0711, -0x07D9, -0x08A2, -0x096A, -0x0A33, -0x0AFB, -0x0BC4,
+    -0x0C8C, -0x0D54, -0x0E1C, -0x0EE3, -0x0FAB, -0x1072, -0x113A, -0x1201,
+    -0x12C8, -0x138F, -0x1455, -0x151C, -0x15E2, -0x16A8, -0x176E, -0x1833,
+    -0x18F9, -0x19BE, -0x1A82, -0x1B47, -0x1C0B, -0x1CCF, -0x1D93, -0x1E57,
+    -0x1F1A, -0x1FDD, -0x209F, -0x2161, -0x2223, -0x22E5, -0x23A6, -0x2467,
+    -0x2528, -0x25E8, -0x26A8, -0x2767, -0x2826, -0x28E5, -0x29A3, -0x2A61,
+    -0x2B1F, -0x2BDC, -0x2C99, -0x2D55, -0x2E11, -0x2ECC, -0x2F87, -0x3041,
+    -0x30FB, -0x31B5, -0x326E, -0x3326, -0x33DF, -0x3496, -0x354D, -0x3604,
+    -0x36BA, -0x376F, -0x3824, -0x38D9, -0x398C, -0x3A40, -0x3AF2, -0x3BA5,
+    -0x3C56, -0x3D07, -0x3DB8, -0x3E68, -0x3F17, -0x3FC5, -0x4073, -0x4121,
+    -0x41CE, -0x427A, -0x4325, -0x43D0, -0x447A, -0x4524, -0x45CD, -0x4675,
+    -0x471C, -0x47C3, -0x4869, -0x490F, -0x49B4, -0x4A58, -0x4AFB, -0x4B9D,
+    -0x4C3F, -0x4CE0, -0x4D81, -0x4E20, -0x4EBF, -0x4F5D, -0x4FFB, -0x5097,
+    -0x5133, -0x51CE, -0x5268, -0x5302, -0x539B, -0x5432, -0x54C9, -0x5560,
+    -0x55F5, -0x568A, -0x571D, -0x57B0, -0x5842, -0x58D3, -0x5964, -0x59F3,
+    -0x5A82, -0x5B0F, -0x5B9C, -0x5C28, -0x5CB3, -0x5D3E, -0x5DC7, -0x5E4F,
+    -0x5ED7, -0x5F5D, -0x5FE3, -0x6068, -0x60EB, -0x616E, -0x61F0, -0x6271,
+    -0x62F1, -0x6370, -0x63EE, -0x646C, -0x64E8, -0x6563, -0x65DD, -0x6656,
+    -0x66CF, -0x6746, -0x67BC, -0x6832, -0x68A6, -0x6919, -0x698B, -0x69FD,
+    -0x6A6D, -0x6ADC, -0x6B4A, -0x6BB7, -0x6C23, -0x6C8E, -0x6CF8, -0x6D61,
+    -0x6DC9, -0x6E30, -0x6E96, -0x6EFB, -0x6F5E, -0x6FC1, -0x7022, -0x7083,
+    -0x70E2, -0x7140, -0x719D, -0x71F9, -0x7254, -0x72AE, -0x7307, -0x735E,
+    -0x73B5, -0x740A, -0x745F, -0x74B2, -0x7504, -0x7555, -0x75A5, -0x75F3,
+    -0x7641, -0x768D, -0x76D8, -0x7722, -0x776B, -0x77B3, -0x77FA, -0x783F,
+    -0x7884, -0x78C7, -0x7909, -0x794A, -0x7989, -0x79C8, -0x7A05, -0x7A41,
+    -0x7A7C, -0x7AB6, -0x7AEE, -0x7B26, -0x7B5C, -0x7B91, -0x7BC5, -0x7BF8,
+    -0x7C29, -0x7C59, -0x7C88, -0x7CB6, -0x7CE3, -0x7D0E, -0x7D39, -0x7D62,
+    -0x7D89, -0x7DB0, -0x7DD5, -0x7DFA, -0x7E1D, -0x7E3E, -0x7E5F, -0x7E7E,
+    -0x7E9C, -0x7EB9, -0x7ED5, -0x7EEF, -0x7F09, -0x7F21, -0x7F37, -0x7F4D,
+    -0x7F61, -0x7F74, -0x7F86, -0x7F97, -0x7FA6, -0x7FB4, -0x7FC1, -0x7FCD,
+    -0x7FD8, -0x7FE1, -0x7FE9, -0x7FF0, -0x7FF5, -0x7FF9, -0x7FFD, -0x7FFE,
+    -0x7FFF, -0x7FFE, -0x7FFD, -0x7FF9, -0x7FF5, -0x7FF0, -0x7FE9, -0x7FE1,
+    -0x7FD8, -0x7FCD, -0x7FC1, -0x7FB4, -0x7FA6, -0x7F97, -0x7F86, -0x7F74,
+    -0x7F61, -0x7F4D, -0x7F37, -0x7F21, -0x7F09, -0x7EEF, -0x7ED5, -0x7EB9,
+    -0x7E9C, -0x7E7E, -0x7E5F, -0x7E3E, -0x7E1D, -0x7DFA, -0x7DD5, -0x7DB0,
+    -0x7D89, -0x7D62, -0x7D39, -0x7D0E, -0x7CE3, -0x7CB6, -0x7C88, -0x7C59,
+    -0x7C29, -0x7BF8, -0x7BC5, -0x7B91, -0x7B5C, -0x7B26, -0x7AEE, -0x7AB6,
+    -0x7A7C, -0x7A41, -0x7A05, -0x79C8, -0x7989, -0x794A, -0x7909, -0x78C7,
+    -0x7884, -0x783F, -0x77FA, -0x77B3, -0x776B, -0x7722, -0x76D8, -0x768D,
+    -0x7641, -0x75F3, -0x75A5, -0x7555, -0x7504, -0x74B2, -0x745F, -0x740A,
+    -0x73B5, -0x735E, -0x7307, -0x72AE, -0x7254, -0x71F9, -0x719D, -0x7140,
+    -0x70E2, -0x7083, -0x7022, -0x6FC1, -0x6F5E, -0x6EFB, -0x6E96, -0x6E30,
+    -0x6DC9, -0x6D61, -0x6CF8, -0x6C8E, -0x6C23, -0x6BB7, -0x6B4A, -0x6ADC,
+    -0x6A6D, -0x69FD, -0x698B, -0x6919, -0x68A6, -0x6832, -0x67BC, -0x6746,
+    -0x66CF, -0x6656, -0x65DD, -0x6563, -0x64E8, -0x646C, -0x63EE, -0x6370,
+    -0x62F1, -0x6271, -0x61F0, -0x616E, -0x60EB, -0x6068, -0x5FE3, -0x5F5D,
+    -0x5ED7, -0x5E4F, -0x5DC7, -0x5D3E, -0x5CB3, -0x5C28, -0x5B9C, -0x5B0F,
+    -0x5A82, -0x59F3, -0x5964, -0x58D3, -0x5842, -0x57B0, -0x571D, -0x568A,
+    -0x55F5, -0x5560, -0x54C9, -0x5432, -0x539B, -0x5302, -0x5268, -0x51CE,
+    -0x5133, -0x5097, -0x4FFB, -0x4F5D, -0x4EBF, -0x4E20, -0x4D81, -0x4CE0,
+    -0x4C3F, -0x4B9D, -0x4AFB, -0x4A58, -0x49B4, -0x490F, -0x4869, -0x47C3,
+    -0x471C, -0x4675, -0x45CD, -0x4524, -0x447A, -0x43D0, -0x4325, -0x427A,
+    -0x41CE, -0x4121, -0x4073, -0x3FC5, -0x3F17, -0x3E68, -0x3DB8, -0x3D07,
+    -0x3C56, -0x3BA5, -0x3AF2, -0x3A40, -0x398C, -0x38D9, -0x3824, -0x376F,
+    -0x36BA, -0x3604, -0x354D, -0x3496, -0x33DF, -0x3326, -0x326E, -0x31B5,
+    -0x30FB, -0x3041, -0x2F87, -0x2ECC, -0x2E11, -0x2D55, -0x2C99, -0x2BDC,
+    -0x2B1F, -0x2A61, -0x29A3, -0x28E5, -0x2826, -0x2767, -0x26A8, -0x25E8,
+    -0x2528, -0x2467, -0x23A6, -0x22E5, -0x2223, -0x2161, -0x209F, -0x1FDD,
+    -0x1F1A, -0x1E57, -0x1D93, -0x1CCF, -0x1C0B, -0x1B47, -0x1A82, -0x19BE,
+    -0x18F9, -0x1833, -0x176E, -0x16A8, -0x15E2, -0x151C, -0x1455, -0x138F,
+    -0x12C8, -0x1201, -0x113A, -0x1072, -0x0FAB, -0x0EE3, -0x0E1C, -0x0D54,
+    -0x0C8C, -0x0BC4, -0x0AFB, -0x0A33, -0x096A, -0x08A2, -0x07D9, -0x0711,
+    -0x0648, -0x057F, -0x04B6, -0x03ED, -0x0324, -0x025B, -0x0192, -0x00C9};
+
+static const float32_t exp_neg2_table[257] = {
+    1.00000000, 0.99221794, 0.98449644, 0.97683502, 0.96923323, 0.96169060, 0.95420667, 0.94678097,
+    0.93941306, 0.93210249, 0.92484881, 0.91765158, 0.91051036, 0.90342471, 0.89639421, 0.88941841,
+    0.88249690, 0.87562926, 0.86881506, 0.86205388, 0.85534533, 0.84868898, 0.84208443, 0.83553127,
+    0.82902912, 0.82257756, 0.81617621, 0.80982468, 0.80352257, 0.79726951, 0.79106511, 0.78490899,
+    0.77880078, 0.77274011, 0.76672660, 0.76075988, 0.75483960, 0.74896539, 0.74313690, 0.73735376,
+    0.73161563, 0.72592215, 0.72027298, 0.71466777, 0.70910618, 0.70358787, 0.69811251, 0.69267976,
+    0.68728928, 0.68194075, 0.67663385, 0.67136824, 0.66614361, 0.66095964, 0.65581601, 0.65071241,
+    0.64564853, 0.64062405, 0.63563867, 0.63069209, 0.62578401, 0.62091412, 0.61608213, 0.61128774,
+    0.60653066, 0.60181060, 0.59712727, 0.59248039, 0.58786967, 0.58329484, 0.57875560, 0.57425169,
+    0.56978282, 0.56534874, 0.56094916, 0.55658382, 0.55225245, 0.54795479, 0.54369057, 0.53945954,
+    0.53526143, 0.53109599, 0.52696297, 0.52286211, 0.51879317, 0.51475589, 0.51075002, 0.50677533,
+    0.50283158, 0.49891851, 0.49503590, 0.49118350, 0.48736108, 0.48356840, 0.47980524, 0.47607137,
+    0.47236655, 0.46869057, 0.46504319, 0.46142419, 0.45783336, 0.45427047, 0.45073531, 0.44722766,
+    0.44374731, 0.44029404, 0.43686765, 0.43346791, 0.43009464, 0.42674762, 0.42342664, 0.42013151,
+    0.41686202, 0.41361797, 0.41039917, 0.40720542, 0.40403652, 0.40089229, 0.39777252, 0.39467703,
+    0.39160563, 0.38855813, 0.38553434, 0.38253409, 0.37955719, 0.37660345, 0.37367270, 0.37076476,
+    0.36787944, 0.36501658, 0.36217600, 0.35935752, 0.35656098, 0.35378620, 0.35103302, 0.34830125,
+    0.34559075, 0.34290134, 0.34023286, 0.33758515, 0.33495804, 0.33235138, 0.32976500, 0.32719875,
+    0.32465247, 0.32212600, 0.31961920, 0.31713190, 0.31466396, 0.31221523, 0.30978555, 0.30737478,
+    0.30498277, 0.30260937, 0.30025445, 0.29791785, 0.29559944, 0.29329906, 0.29101659, 0.28875188,
+    0.28650480, 0.28427520, 0.28206295, 0.27986792, 0.27768997, 0.27552897, 0.27338479, 0.27125729,
+    0.26914635, 0.26705184, 0.26497362, 0.26291158, 0.26086559, 0.25883551, 0.25682124, 0.25482264,
+    0.25283960, 0.25087198, 0.24891968, 0.24698257, 0.24506054, 0.24315346, 0.24126123, 0.23938372,
+    0.23752082, 0.23567242, 0.23383840, 0.23201866, 0.23021307, 0.22842154, 0.22664395, 0.22488019,
+    0.22313016, 0.22139375, 0.21967085, 0.21796136, 0.21626517, 0.21458218, 0.21291229, 0.21125539,
+    0.20961139, 0.20798018, 0.20636166, 0.20475574, 0.20316232, 0.20158130, 0.20001258, 0.19845607,
+    0.19691168, 0.19537930, 0.19385884, 0.19235022, 0.19085334, 0.18936811, 0.18789443, 0.18643223,
+    0.18498140, 0.18354186, 0.18211353, 0.18069631, 0.17929012, 0.17789487, 0.17651048, 0.17513687,
+    0.17377394, 0.17242162, 0.17107983, 0.16974847, 0.16842748, 0.16711677, 0.16581626, 0.16452586,
+    0.16324551, 0.16197513, 0.16071463, 0.15946393, 0.15822298, 0.15699168, 0.15576996, 0.15455774,
+    0.15335497, 0.15216155, 0.15097742, 0.14980250, 0.14863673, 0.14748003, 0.14633233, 0.14519356,
+    0.14406366, 0.14294255, 0.14183016, 0.14072643, 0.13963129, 0.13854467, 0.13746650, 0.13639673,
+    0.13533528};

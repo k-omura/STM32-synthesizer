@@ -104,7 +104,7 @@ stm32synth_res_t stm32synth_component_updateLPF(stm32synth_config_filter_t *_con
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
 
-	float32_t freq = STM32SYNTH_TUNING * fast_exp2f(((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
+	float32_t freq = STM32SYNTH_TUNING * stm32synth_fast_exp2f(((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
 	if (freq > STM32SYNTH_MAX_FREQ)
 	{
 		freq = (float32_t)STM32SYNTH_MAX_FREQ;
@@ -149,7 +149,7 @@ stm32synth_res_t stm32synth_component_updateHPF(stm32synth_config_filter_t *_con
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
 
-	float32_t freq = STM32SYNTH_TUNING * fast_exp2f(((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
+	float32_t freq = STM32SYNTH_TUNING * stm32synth_fast_exp2f(((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
 	if (freq > STM32SYNTH_MAX_FREQ)
 	{
 		freq = (float32_t)STM32SYNTH_MAX_FREQ;
@@ -196,7 +196,7 @@ stm32synth_res_t stm32synth_component_updateLSF(stm32synth_config_filter_t *_con
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
 
-	float32_t freq = STM32SYNTH_TUNING * fast_exp2f(((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
+	float32_t freq = STM32SYNTH_TUNING * stm32synth_fast_exp2f(((float32_t)((int32_t)_configFilter->para.cutoff_freq_nn.absolute + _wow_val) / 3072.0f) - 5.75f);
 	if (freq > STM32SYNTH_MAX_FREQ)
 	{
 		freq = (float32_t)STM32SYNTH_MAX_FREQ;
@@ -206,7 +206,7 @@ stm32synth_res_t stm32synth_component_updateLSF(stm32synth_config_filter_t *_con
 	float32_t sin_omega_c, cos_omega_c;
 	arm_sin_cos_f32(omega_c, &sin_omega_c, &cos_omega_c);
 	float32_t alfa = sin_omega_c * (0.70710678118654752440084436f); // 0.70710678118654752440084436f is 1/(2 * Q), Q=1/sqrt(2)
-	float32_t shelfA = fast_exp10f((_configFilter->para.q_factor * (6.0f / 40.0f)));
+	float32_t shelfA = stm32synth_fast_exp10f((_configFilter->para.q_factor * (6.0f / 40.0f)));
 	float32_t beta;
 	arm_sqrt_f32(shelfA, &beta);
 	beta = 2.0f * beta * alfa;

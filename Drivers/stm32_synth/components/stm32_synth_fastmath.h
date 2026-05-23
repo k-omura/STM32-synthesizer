@@ -14,8 +14,8 @@
 
 #include "stm32_synth.h"
 
-float32_t fast_exp2f(float32_t x);
-float32_t fast_exp10f(float32_t x);
-float32_t fast_roundf(float32_t x);
+float32_t stm32synth_fast_exp2f(float32_t x);
+float32_t stm32synth_fast_exp10f(float32_t x);
+float32_t stm32synth_fast_roundf(float32_t x);
 
 #endif /* STM32_SYNTH_FASTMATH_H */

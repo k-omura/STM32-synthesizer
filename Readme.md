@@ -44,7 +44,7 @@ A binary file is prepared for the controller designer, so download it and write 
   - [Auto performance (Super Mario)](https://youtu.be/yB0PNu2G10Q)
   - [Introduction of creating sounds](https://youtu.be/cMSFZtEUxo4)
 
-## Hot to use
+## How to use
 ### I2S Connection
 | Signal | STM32 | I2S Module |
 | :-: | :-: | :-: |
@@ -52,7 +52,7 @@ A binary file is prepared for the controller designer, so download it and write 
 | BCLK | PB13 | BCLK |
 | WS(LRC) | PB12 | WS |
 
-### with USB-MIDI
+### Control with USB-MIDI
 1. Write the binary and connect your controller with STM32CubeProg.
 2. Connect I2S Module and Speaker.
 3. Connect PC and STM32 via USB and send MIDI data using MIDI software on PC.
@@ -60,14 +60,14 @@ A binary file is prepared for the controller designer, so download it and write 
 
 #### Note: Because this operates as a USB-MIDI device, you cannot directly connect a USB MIDI keyboard to the STM32, as the USB MIDI keyboard must be connected to a USB-MIDI host.  
 
-### with MIDI over SPI
+### Control with MIDI over SPI
 1. Write the binary and connect your controller with STM32CubeProg.
 2. Connect I2S Module and Speaker.
 3. Connect Host and STM32 via SPI and send MIDI data over SPI from host.
 #### Note: STM32' SPI mode is slave.
 
 #### SPI Connection
-| Signal | STM32 |
+| Signal | STM32(Slave) |
 | :-: | :-: |
 | MOSI | PA7 |
 | MISO | PA6 |
@@ -86,7 +86,7 @@ A binary file is prepared for the controller designer, so download it and write 
 | Byte | Field |
 | :-: | :-- |
 | 1 | Cable Number(4bit) / CIndex (4bit)|
-| 2 | Message(4bit) / Channel(4bit)|
+| 2 | Message(4bit,0xB) / Channel(4bit)|
 | 3 | Control Change |
 | 4 | Value of Control Change |
 

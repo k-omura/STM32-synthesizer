@@ -25,16 +25,9 @@ static q15_t audiobuffer_reverb[STM32SYNTH_REVERB_NUM][STM32SYNTH_HALF_NUM_SAMPL
 /**
  * @brief Init STM32 Synthesizer API
  * @param _dacBuff: Pointer to DAC buffer (must be at least STM32SYNTH_HALF_NUM_SAMPLING in size)
- * @param _cordicHW: Pointer to CORDIC hardware handle (required if STM32SYNTH_SIN_LUT is not defined)
  * @return STM32SYNTH_RES_OK on success, STM32SYNTH_RES_NG on failure
  */
-stm32synth_res_t stm32synth_init(
-	uint16_t *_dacBuff
-#ifndef STM32SYNTH_SIN_LUT
-	,
-	CORDIC_HandleTypeDef *_cordicHW
-#endif /* STM32SYNTH_SIN_LUT*/
-)
+stm32synth_res_t stm32synth_init(uint16_t *_dacBuff)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_NG;
 
@@ -193,11 +186,6 @@ stm32synth_res_t stm32synth_init(
 	// Chord
 	stm32synth_component_initChord();
 	// stm32synth_component_testChord();
-
-	// CORDIC
-#ifndef STM32SYNTH_SIN_LUT
-	stm32synth_component_initCORDIC(_cordicHW);
-#endif /* STM32SYNTH_SIN_LUT */
 
 	return res;
 }

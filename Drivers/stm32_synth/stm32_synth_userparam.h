@@ -13,7 +13,6 @@
 #define STM32SYNTH_FILTER      //!< enable here to apply low pass filter to whole audio
 #define STM32SYNTH_CHORDFILTER //!< enable here to apply low pass filter for chord
 #define STM32SYNTH_FILT_CMSIS  //!< if STM32 has FMAC HW disable here (not implemented yet)
-#define STM32SYNTH_SIN_LUT     //!< if STM32 has CORDIC HW disable here
 #define STM32SYNTH_REVERB      //!< enable here to apply reverb
 // #define SYNTH_USE_FLASH_CONFIG   //!< If you use flash to write/read config, enable below.
 #define STM32SYNTH_DRUM_TESTMODE //!< enable here to test drum sound
