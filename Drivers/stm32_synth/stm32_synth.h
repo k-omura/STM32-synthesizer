@@ -321,7 +321,13 @@ typedef struct
 
 // api-----------------------
 //- default start
-stm32synth_res_t stm32synth_init(uint16_t *_dacBuff);
+stm32synth_res_t stm32synth_init(
+    uint16_t *_dacBuff
+#ifdef STM32SYNTH_SIN_CORDIC
+    ,
+    CORDIC_HandleTypeDef *_cordicHW
+#endif /* STM32SYNTH_SIN_CORDIC*/
+);
 
 stm32synth_res_t stm32synth_hundleloop();
 stm32synth_res_t stm32synth_dacDmaCmplt_hundle();

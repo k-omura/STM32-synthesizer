@@ -52,7 +52,14 @@ static const stm32synth_config_drum_t drumConfigList[STM32SYNTH_DRUMCHORD_NUMBER
 static stm32synth_config_drum_t drumConfigList[STM32SYNTH_DRUMCHORD_NUMBER];
 #endif /* STM32SYNTH_DRUM_TESTMODE */
 
-static const q15_t sine_lut[1024];          //<! sine look up table 1024 samples for one cycle, full range of q15_t (0 to 32767 to -32768 to 0)
+#ifdef STM32SYNTH_SIN_CORDIC
+// CORDIC instance, config
+static CORDIC_HandleTypeDef *cordicHW;
+#else
+// sine look up table
+static const q15_t sine_lut[1024]; //<! sine look up table 1024 samples for one cycle, full range of q15_t (0 to 32767 to -32768 to 0)
+#endif /* STM32SYNTH_SIN_CORDIC */
+
 static const float32_t exp_neg2_table[257]; //<! exp(-2 * x) table for x=0 to 1, 256 steps, used for ADSR curve
 
 stm32synth_res_t stm32synth_component_testChord(stm32synth_config_t *_config)
@@ -378,6 +385,28 @@ stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, s
 
     return res;
 }
+
+#ifdef STM32SYNTH_SIN_CORDIC
+stm32synth_res_t stm32synth_component_initCORDIC(CORDIC_HandleTypeDef *_cordicHW)
+{
+    stm32synth_res_t res = STM32SYNTH_RES_OK;
+    cordicHW = _cordicHW;
+
+    CORDIC_ConfigTypeDef cordicConfig;
+
+    cordicConfig.Function = CORDIC_FUNCTION_SINE;
+    cordicConfig.Precision = CORDIC_PRECISION_2CYCLES;
+    cordicConfig.Scale = CORDIC_SCALE_0;
+    cordicConfig.NbWrite = CORDIC_NBWRITE_1;
+    cordicConfig.NbRead = CORDIC_NBREAD_1;
+    cordicConfig.InSize = CORDIC_OUTSIZE_16BITS;
+    cordicConfig.OutSize = CORDIC_OUTSIZE_16BITS;
+
+    HAL_CORDIC_Configure(cordicHW, &cordicConfig);
+
+    return res;
+}
+#endif /* STM32SYNTH_SIN_CORDIC */
 
 //--------------------------------------------------------------------------------------------------------
 stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_pbuff, stm32synth_update_half_t _half)
@@ -779,6 +808,20 @@ stm32synth_res_t stm32synth_chord_addsine(stm32synth_config_t *_config, stm32syn
     q15_t scaleFract;
     stm32synth_component_f32toq15fract(_config->waveform[_configChord->channel][_wnum].sin_level / (float32_t)(1 << (STM32SYNTH_CHORD_BASE_AMP_SHIFT - 1)), &scaleFract, &shift);
 
+#ifdef STM32SYNTH_SIN_CORDIC
+    // CORDIC Baremetal Zero-Overhead mode
+    q15_t *p_tmp_in_buff = (q15_t *)_radBuff;
+    q15_t *p_tmp_out_buff = (q15_t *)buff;
+
+    // Write of input data in Write Data register, and increment input buffer pointer
+    cordicHW->Instance->WDATA = (int32_t)((*p_tmp_in_buff++) << 16);
+    for (uint16_t index = (STM32SYNTH_HALF_NUM_SAMPLING - 1); index > 0; index--)
+    {
+        cordicHW->Instance->WDATA = (int32_t)((*p_tmp_in_buff++) << 16);
+        (*p_tmp_out_buff++) = (q15_t)(cordicHW->Instance->RDATA & 0x0000FFFF);
+    }
+    (*p_tmp_out_buff) = (q15_t)(cordicHW->Instance->RDATA & 0x0000FFFF);
+#else
     q15_t *buff_p = buff;
     q15_t *radBuff_p = _radBuff;
 
@@ -797,6 +840,7 @@ stm32synth_res_t stm32synth_chord_addsine(stm32synth_config_t *_config, stm32syn
 
         *buff_p++ = (q15_t)interp;
     }
+#endif /* STM32SYNTH_SIN_CORDIC */
 
     arm_scale_q15(buff, scaleFract, shift, buff, STM32SYNTH_HALF_NUM_SAMPLING);
     arm_add_q15(_chordBuff, buff, _chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
@@ -1099,6 +1143,7 @@ static const stm32synth_config_drum_t drumConfigList[STM32SYNTH_DRUMCHORD_NUMBER
     {STM32SYNTH_MIDINN_NONE, 0, STM32SYNTH_MIDINN_FILTER_DISABLE, STM32SYNTH_MIDINN_FILTER_DISABLE, STM32SYNTH_CHORD_DRUM_TYPE_NOISE, 128, 0.717, 0.717, 1, 0},                  // NoteNum:81 Open Triangle
 };
 
+#ifndef STM32SYNTH_SIN_CORDIC
 static const q15_t sine_lut[1024] = {
     0x0000, 0x00C9, 0x0192, 0x025B, 0x0324, 0x03ED, 0x04B6, 0x057F,
     0x0648, 0x0711, 0x07D9, 0x08A2, 0x096A, 0x0A33, 0x0AFB, 0x0BC4,
@@ -1228,6 +1273,7 @@ static const q15_t sine_lut[1024] = {
     -0x12C8, -0x1201, -0x113A, -0x1072, -0x0FAB, -0x0EE3, -0x0E1C, -0x0D54,
     -0x0C8C, -0x0BC4, -0x0AFB, -0x0A33, -0x096A, -0x08A2, -0x07D9, -0x0711,
     -0x0648, -0x057F, -0x04B6, -0x03ED, -0x0324, -0x025B, -0x0192, -0x00C9};
+#endif /* STM32SYNTH_SIN_CORDIC */
 
 static const float32_t exp_neg2_table[257] = {
     1.00000000, 0.99221794, 0.98449644, 0.97683502, 0.96923323, 0.96169060, 0.95420667, 0.94678097,

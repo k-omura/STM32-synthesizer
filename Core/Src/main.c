@@ -43,6 +43,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+CORDIC_HandleTypeDef hcordic;
+
 I2S_HandleTypeDef hi2s2;
 DMA_HandleTypeDef hdma_spi2_tx;
 
@@ -63,6 +65,7 @@ static void MX_DMA_Init(void);
 static void MX_I2S2_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_RNG_Init(void);
+static void MX_CORDIC_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -131,6 +134,7 @@ int main(void)
   MX_I2S2_Init();
   MX_SPI1_Init();
   MX_RNG_Init();
+  MX_CORDIC_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -144,7 +148,13 @@ int main(void)
   // init Synth
   uint16_t audio_dac[STM32SYNTH_NUM_I2SBUFF] = {0};
 
-  stm32synth_init(audio_dac);
+  stm32synth_init(
+      audio_dac
+#ifdef STM32SYNTH_SIN_CORDIC
+      ,
+      &hcordic
+#endif /* STM32SYNTH_SIN_CORDIC*/
+  );
 
   // init channel program
   for (uint8_t c = 0; c < 16; c++)
@@ -216,6 +226,31 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+ * @brief CORDIC Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_CORDIC_Init(void)
+{
+
+  /* USER CODE BEGIN CORDIC_Init 0 */
+
+  /* USER CODE END CORDIC_Init 0 */
+
+  /* USER CODE BEGIN CORDIC_Init 1 */
+
+  /* USER CODE END CORDIC_Init 1 */
+  hcordic.Instance = CORDIC;
+  if (HAL_CORDIC_Init(&hcordic) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CORDIC_Init 2 */
+
+  /* USER CODE END CORDIC_Init 2 */
 }
 
 /**

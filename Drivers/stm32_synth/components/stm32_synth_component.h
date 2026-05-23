@@ -91,6 +91,10 @@ stm32synth_res_t stm32synth_component_lfo(stm32synth_config_lfo_t *_configLfo);
 
 stm32synth_res_t stm32synth_component_f32toq15fract(float32_t _scale, q15_t *_scaleFract, int8_t *_shift);
 
+#ifdef STM32SYNTH_SIN_CORDIC
+stm32synth_res_t stm32synth_component_initCORDIC(CORDIC_HandleTypeDef *_cordicHW);
+#endif /* STM32SYNTH_SIN_CORDIC */
+
 #ifdef STM32SYNTH_DRUM_TESTMODE
 stm32synth_res_t stm32synth_drum_change_to_test(uint8_t _midiCC, uint8_t _val);
 stm32synth_res_t stm32synth_drum_init();
