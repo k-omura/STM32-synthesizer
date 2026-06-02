@@ -430,7 +430,7 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
     float32_t adsr_amp = 0;
     stm32synth_chord_adsrCurve(_config, _configChord, &adsr_amp);
     amp *= adsr_amp;
-    amp *= 1 + _config->tre[_configChord->channel].val;
+    amp *= 1.0f + _config->tre[_configChord->channel].val;
 
     // envelope
     int16_t envelope_volume, envelope_freq_nn;
@@ -460,7 +460,7 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
     {
         stm32synth_chord_envelope(&(_config->envelope[_configChord->channel].freq), &(_configChord->envelope.freq), &envelope_freq_nn);
     }
-    amp *= 1 + envelope_volume / 64.0f;
+    amp *= 1.0f + envelope_volume / 64.0f;
 
 #ifdef STM32SYNTH_FILTER
 #ifdef STM32SYNTH_CHORDFILTER

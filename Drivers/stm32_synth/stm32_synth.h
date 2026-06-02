@@ -32,15 +32,15 @@
 #define STM32SYNTH_MAX_FREQ_NOTE (34579)                                                      //!< maximum frequency note
 #define STM32SYNTH_MIN_FREQ (20)                                                              //!< minimum frequency (Hz)
 #define STM32SYNTH_SAMPLE_FORFILT (STM32SYNTH_HALF_NUM_SAMPLING + STM32SYNTH_PRE_SAMPLE)      //!< number of samples for filter
-#define STM32SYNTH_MAX_CHORD (24)                                                             //!< maximum number of chords
+#define STM32SYNTH_MAX_CHORD (25)                                                             //!< maximum number of chords
 #define STM32SYNTH_CHANNEL_NUMBER (16)                                                        //!< Number of MIDI channels
 #define STM32SYNTH_WAVEFORM_NUM_PERCHORD (2)                                                  //!< Number of waveforms per chord
 #define STM32SYNTH_REVERB_NUM (4)                                                             //!< Number of reverb buffers
 
 #ifndef STM32SYNTH_DRUM_TESTMODE
-#define STM32SYNTH_DRUMCHORD_NUMBER (47) //!< Number of drum chords (must be less than STM32SYNTH_MAX_CHORD)
+#define STM32SYNTH_DRUMCHORD_NUMBER (47) //!< Number of drum chords
 #else
-#define STM32SYNTH_DRUMCHORD_NUMBER (48) //!< Number of drum chords (must be less than STM32SYNTH_MAX_CHORD). One extra for test mode.
+#define STM32SYNTH_DRUMCHORD_NUMBER (48) //!< Number of drum chords. One extra for test mode.
 #endif                                   /* STM32SYNTH_DRUM_TESTMODE */
 
 #define STM32SYNTH_M_PIF32 (3.141592653589793f)   //!< Pi for float32
