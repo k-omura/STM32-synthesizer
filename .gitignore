@@ -19,3 +19,5 @@ minimal_synth_G431_Device.txt
 .DS_Store
 Thumbs.db
 myenv/
+
+python/data.json
