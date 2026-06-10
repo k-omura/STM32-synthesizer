@@ -1,10 +1,11 @@
-#py -m pip install -U matplotlib numpy scipy
+#py -m pip install -U matplotlib numpy scipy librosa
 
 from enum import Enum, IntEnum
 
 import random
 import time
 import json
+import librosa
 import matplotlib.pyplot as plot
 import numpy as np
 import scipy.io.wavfile as wavfile
@@ -20,8 +21,10 @@ from deap import base, creator, tools
 FRAME_SIZE    = 2048         # フレームサイズ
 SAMPLE_RATE   = 44100        # サンプリングレート
 MAX_EVAL_FREQ = 10000        # 10 kHz 以上を評価に含めない
+MEL_BANDS     = 64           # メルバンド数
 PLAYBACK_DURATION_SECONDS = 0.5  # パラメータ変更時に再生する音声長
 NGEN          = 1000           # GA世代数
+MELSPECTRUM_MODE = True           # メルスペクトラムを使用するかどうか
 
 class GApara(IntEnum):
     NO = 0,
@@ -307,6 +310,7 @@ class Parameter:
 
     def setVal(self, _value):
         if self.gapara == GApara.NO:
+            self.value = self.resetValue
             return
         self.value = _value
 
@@ -393,6 +397,56 @@ def _spectrum_range(frame_size, sample_rate, max_freq):
     return max_bin
 
 
+def _prepare_fft_spectrum(audio, frame_size, max_freq):
+    if audio.ndim > 1:
+        audio = audio[:, 0]
+
+    audio = np.asarray(audio, dtype=np.float32)
+    if np.max(np.abs(audio)) > 0:
+        audio = audio / np.max(np.abs(audio))
+
+    if audio.shape[0] < frame_size:
+        padded = np.zeros(frame_size, dtype=np.float32)
+        padded[:audio.shape[0]] = audio
+        audio = padded
+
+    audio = audio[:frame_size]
+    windowed = np.hamming(frame_size) * audio
+    spectrum = np.fft.fft(windowed)
+    max_bin = _spectrum_range(frame_size, SAMPLE_RATE, max_freq)
+    magnitude = np.abs(spectrum[1:max_bin + 1])
+    magnitude_db = 20 * np.log10(magnitude + 1e-9)
+    return magnitude_db - np.max(magnitude_db)
+
+
+def _prepare_mel_spectrum(audio, frame_size, max_freq):
+    if audio.ndim > 1:
+        audio = audio[:, 0]
+
+    audio = np.asarray(audio, dtype=np.float32)
+    if np.max(np.abs(audio)) > 0:
+        audio = audio / np.max(np.abs(audio))
+
+    if audio.shape[0] < frame_size:
+        padded = np.zeros(frame_size, dtype=np.float32)
+        padded[:audio.shape[0]] = audio
+        audio = padded
+
+    audio = audio[:frame_size]
+    S = librosa.feature.melspectrogram(
+        y=audio,
+        sr=SAMPLE_RATE,
+        n_fft=frame_size,
+        hop_length=frame_size,
+        window='hamming',
+        n_mels=MEL_BANDS,
+        fmax=max_freq,
+        power=2.0,
+    )
+    mel_db = librosa.power_to_db(S[:, 0], ref=np.max)
+    return mel_db
+
+
 def prepare_target_spectrum(wave_data, sample_rate, frame_size, max_freq=MAX_EVAL_FREQ):
     if wave_data.ndim > 1:
         wave_data = wave_data[:, 0]
@@ -402,25 +456,15 @@ def prepare_target_spectrum(wave_data, sample_rate, frame_size, max_freq=MAX_EVA
         num_samples = int(len(audio) * SAMPLE_RATE / sample_rate)
         audio = signal.resample(audio, num_samples)
 
-    if np.max(np.abs(audio)) > 0:
-        audio = audio / np.max(np.abs(audio))
-
-    audio = audio[:frame_size]
-    windowed = np.hamming(frame_size) * audio
-    spectrum = np.fft.fft(windowed)
-    max_bin = _spectrum_range(frame_size, sample_rate, max_freq)
-    magnitude = np.abs(spectrum[1:max_bin + 1])
-    magnitude_db = 20 * np.log10(magnitude + 1e-9)
-    return magnitude_db - np.max(magnitude_db)
+    if MELSPECTRUM_MODE:
+        return _prepare_mel_spectrum(audio, frame_size, max_freq)
+    return _prepare_fft_spectrum(audio, frame_size, max_freq)
 
 
 def compute_spectrum(signal_data, frame_size, max_freq=MAX_EVAL_FREQ):
-    windowed = np.hamming(frame_size) * signal_data
-    spectrum = np.fft.fft(windowed)
-    max_bin = _spectrum_range(frame_size, SAMPLE_RATE, max_freq)
-    magnitude = np.abs(spectrum[1:max_bin + 1])
-    magnitude_db = 20 * np.log10(magnitude + 1e-9)
-    return magnitude_db - np.max(magnitude_db)
+    if MELSPECTRUM_MODE:
+        return _prepare_mel_spectrum(signal_data, frame_size, max_freq)
+    return _prepare_fft_spectrum(signal_data, frame_size, max_freq)
 
 
 def play_audio(waveform, sample_rate):
@@ -580,14 +624,20 @@ def main():
     instInput = prepare_target_spectrum(base_audio_data, rate, FRAME_SIZE)
 
     plot.ion()
-    max_bin = _spectrum_range(FRAME_SIZE, SAMPLE_RATE, MAX_EVAL_FREQ)
-    xf = np.arange(1, max_bin + 1) * SAMPLE_RATE / FRAME_SIZE
+    if MELSPECTRUM_MODE:
+        frequencies = librosa.mel_frequencies(n_mels=MEL_BANDS, fmax=MAX_EVAL_FREQ)
+        xlabel = 'Mel center frequency (Hz)'
+    else:
+        max_bin = _spectrum_range(FRAME_SIZE, SAMPLE_RATE, MAX_EVAL_FREQ)
+        frequencies = np.arange(1, max_bin + 1) * SAMPLE_RATE / FRAME_SIZE
+        xlabel = 'Frequency (Hz)'
+
     fig, ax = plot.subplots()
-    ax.plot(xf, instInput, color='orange', label='target')
-    generated_line, = ax.plot(xf, np.full_like(xf, -150.0), color='red', label='generated')
-    diff_line, = ax.plot(xf, np.full_like(xf, -150.0), color='grey', label='diff')
+    ax.plot(frequencies, instInput, color='orange', label='target')
+    generated_line, = ax.plot(frequencies, np.full_like(frequencies, -150.0), color='red', label='generated')
+    diff_line, = ax.plot(frequencies, np.full_like(frequencies, -150.0), color='grey', label='diff')
     ax.set_ylim(-150, 0)
-    ax.set_xlabel('Frequency (Hz)')
+    ax.set_xlabel(xlabel)
     ax.set_ylabel('Magnitude (dB)')
     ax.legend()
     plot.show()
@@ -692,7 +742,10 @@ def main():
 
     def evaluate_parameters(individual):
         for i, para in enumerate(synthPara):
-            para.setVal(int(individual[i]))
+            if para.gapara == GApara.NO:
+                para.setResetVal()
+            else:
+                para.setVal(int(individual[i]))
 
         playback_samples = int(SAMPLE_RATE * PLAYBACK_DURATION_SECONDS)
         generated = synthesize_waveform(synthPara, playback_samples, SAMPLE_RATE, NoteNum.NN_C5)
@@ -718,7 +771,7 @@ def main():
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     toolbox.register("evaluate", evaluate_parameters)
     toolbox.register("mate", crossover_bounded)
-    toolbox.register("mutate", mutate_bounded, mu=0, sigma=40, indpb=0.4)
+    toolbox.register("mutate", mutate_bounded, mu=0, sigma=30, indpb=0.4)
     toolbox.register("select", tools.selTournament, tournsize=3)
 
     population = toolbox.population(n=10)
@@ -762,8 +815,11 @@ def main():
 
     best_generated = synthesize_waveform(synthPara, FRAME_SIZE, SAMPLE_RATE, NoteNum.NN_C5)
     best_spectrum = compute_spectrum(best_generated, FRAME_SIZE, MAX_EVAL_FREQ)
-    max_bin = _spectrum_range(FRAME_SIZE, SAMPLE_RATE, MAX_EVAL_FREQ)
-    xf = np.arange(1, max_bin + 1) * SAMPLE_RATE / FRAME_SIZE
+    if MELSPECTRUM_MODE:
+        xf = librosa.mel_frequencies(n_mels=MEL_BANDS, fmax=MAX_EVAL_FREQ)
+    else:
+        max_bin = _spectrum_range(FRAME_SIZE, SAMPLE_RATE, MAX_EVAL_FREQ)
+        xf = np.arange(1, max_bin + 1) * SAMPLE_RATE / FRAME_SIZE
 
     plot.plot(xf, instInput, color='orange', label='target')
     generated_line, = plot.plot(xf, best_spectrum, color='red', label='generated')
