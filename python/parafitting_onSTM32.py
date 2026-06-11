@@ -15,7 +15,7 @@ from scipy import signal
 from deap import base, creator, tools
 
 # local import
-from midi_para import MidiMsg, MidiCC, NoteNum
+from midi_para import MidiMsg, MidiCC, NoteNum, Parameter, GApara
 
 FRAME_SIZE    = 2048         # フレームサイズ
 SAMPLE_RATE   = 44100        # サンプリングレート

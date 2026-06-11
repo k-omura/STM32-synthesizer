@@ -19,7 +19,7 @@ from scipy import signal
 from deap import base, creator, tools
 
 # local import
-from midi_para import MidiMsg, MidiCC, NoteNum
+from midi_para import MidiMsg, MidiCC, NoteNum, Parameter, GApara
 import synth_waveform
 
 FRAME_SIZE    = 16384            # フレームサイズ
@@ -29,37 +29,6 @@ PLAYBACK_DURATION_SECONDS = 0.2  # パラメータ変更時に再生する音声
 NGEN          = 1000             # GA世代数
 MELSPECTRUM_MODE =  False        # メルスペクトラムを使用するかどうか
 MEL_BANDS     = 64               # メルバンド数
-
-class GApara(IntEnum):
-    NO = 0,
-    YES = 1
-
-class Parameter:
-    def __init__(self, _jsonHeader, _gapara, _channel, _midiMsg, _midiCC, _valueMin, _valueMax, _resetValue):
-        self.gapara = _gapara
-        self.jsonHeader = _jsonHeader
-        self.channel = _channel
-        self.midiMsg = _midiMsg
-        self.midiCC = _midiCC
-        self.valueMin= _valueMin
-        self.valueMax = _valueMax
-        self.value = _resetValue
-        self.resetValue = _resetValue
-
-    def setResetVal(self):
-        self.value = self.resetValue
-
-    def setVal(self, _value):
-        if self.gapara == GApara.NO:
-            self.value = self.resetValue
-            return
-        self.value = _value
-
-    def get_normalized(self):
-        if self.valueMax == self.valueMin:
-            return 0.0
-        return (self.value - self.valueMin) / (self.valueMax - self.valueMin)
-
 
 def _spectrum_range(frame_size, sample_rate, max_freq):
     max_bin = int(max_freq * frame_size / sample_rate)

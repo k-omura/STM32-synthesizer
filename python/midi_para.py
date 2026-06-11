@@ -1,5 +1,36 @@
 from enum import Enum, IntEnum
-    
+
+class GApara(IntEnum):
+    NO = 0,
+    YES = 1
+
+class Parameter:
+    def __init__(self, _jsonHeader, _gapara, _channel, _midiMsg, _midiCC, _valueMin, _valueMax, _resetValue):
+        self.gapara = _gapara
+        self.jsonHeader = _jsonHeader
+        self.channel = _channel
+        self.midiMsg = _midiMsg
+        self.midiCC = _midiCC
+        self.valueMin= _valueMin
+        self.valueMax = _valueMax
+        self.value = _resetValue
+        self.resetValue = _resetValue
+
+    def setResetVal(self):
+        self.value = self.resetValue
+
+    def setVal(self, _value):
+        if self.gapara == GApara.NO:
+            self.value = self.resetValue
+            return
+        self.value = _value
+
+    def get_normalized(self):
+        if self.valueMax == self.valueMin:
+            return 0.0
+        return (self.value - self.valueMin) / (self.valueMax - self.valueMin)
+
+
 class MidiMsg(IntEnum):
     NOTEOFF = 0x80,
     NOTEON = 0x90,
