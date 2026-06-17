@@ -22,13 +22,15 @@ from deap import base, creator, tools
 from midi_para import MidiMsg, MidiCC, NoteNum, Parameter, GApara
 import synth_waveform
 
-FRAME_SIZE    = 16384            # フレームサイズ
-SAMPLE_RATE   = 44100            # サンプリングレート
-MAX_EVAL_FREQ = 10000            # 10 kHz 以上を評価に含めない
-PLAYBACK_DURATION_SECONDS = 0.2  # パラメータ変更時に再生する音声長
-NGEN          = 1000             # GA世代数
-MELSPECTRUM_MODE =  False        # メルスペクトラムを使用するかどうか
-MEL_BANDS     = 64               # メルバンド数
+FRAME_SIZE_TARGET    = 16384     # フレームサイズ(ターゲット音声のスペクトラム計算に使用)
+FRAME_SIZE_SAMPLE    = 16384     # フレームサイズ(テスト用音声のスペクトラム計算に使用)
+SAMPLE_RATE          = 44100     # サンプリングレート
+MAX_EVAL_FREQ        = 10000     # 10 kHz 以上を評価に含めない
+TEST_PLAY_DURATION   = 0.2       # パラメータ変更時に再生する音声長
+BEST_PLAY_DURATION   = 1.0       # パラメータ変更時に再生する音声長
+NGEN                 = 1000      # GA世代数
+MELSPECTRUM_MODE     = False     # メルスペクトラムを使用するかどうか
+MEL_BANDS            = 64        # メルバンド数
 
 def _spectrum_range(frame_size, sample_rate, max_freq):
     max_bin = int(max_freq * frame_size / sample_rate)
@@ -137,15 +139,15 @@ def play_audio(waveform, sample_rate):
 
 def main():
     rate, base_audio_data = wavfile.read("instSample/000_ACOUSTIC_GRAND_PIANO.wav")
-    instInput = prepare_target_spectrum(base_audio_data, rate, FRAME_SIZE)
+    instInput = prepare_target_spectrum(base_audio_data, rate, FRAME_SIZE_TARGET)
 
     plot.ion()
     if MELSPECTRUM_MODE:
         frequencies = librosa.mel_frequencies(n_mels=MEL_BANDS, fmax=MAX_EVAL_FREQ)
         xlabel = 'Mel center frequency (Hz)'
     else:
-        max_bin = _spectrum_range(FRAME_SIZE, SAMPLE_RATE, MAX_EVAL_FREQ)
-        frequencies = np.arange(1, max_bin + 1) * SAMPLE_RATE / FRAME_SIZE
+        max_bin = _spectrum_range(FRAME_SIZE_TARGET, SAMPLE_RATE, MAX_EVAL_FREQ)
+        frequencies = np.arange(1, max_bin + 1) * SAMPLE_RATE / FRAME_SIZE_TARGET
         xlabel = 'Frequency (Hz)'
 
     fig, ax = plot.subplots()
@@ -263,16 +265,16 @@ def main():
             else:
                 para.setVal(int(individual[i]))
 
-        playback_samples = int(SAMPLE_RATE * PLAYBACK_DURATION_SECONDS)
+        playback_samples = int(SAMPLE_RATE * TEST_PLAY_DURATION)
         generated = synth_waveform.create(synthPara, playback_samples, SAMPLE_RATE, NoteNum.NN_C5)
 
-        spectrum_source = generated[:FRAME_SIZE]
-        if spectrum_source.shape[0] < FRAME_SIZE:
-            padded = np.zeros(FRAME_SIZE, dtype=np.float32)
+        spectrum_source = generated[:FRAME_SIZE_SAMPLE]
+        if spectrum_source.shape[0] < FRAME_SIZE_SAMPLE:
+            padded = np.zeros(FRAME_SIZE_SAMPLE, dtype=np.float32)
             padded[:spectrum_source.shape[0]] = spectrum_source
             spectrum_source = padded
 
-        generated_spectrum = compute_spectrum(spectrum_source, FRAME_SIZE, MAX_EVAL_FREQ)
+        generated_spectrum = compute_spectrum(spectrum_source, FRAME_SIZE_SAMPLE, MAX_EVAL_FREQ)
         diff_input = np.sqrt(np.square(instInput - generated_spectrum))
         diff_input_sum = np.sum(diff_input)
 
@@ -320,7 +322,7 @@ def main():
         generation_best = tools.selBest(population, k=1)[0]
         for i, para in enumerate(synthPara):
             para.setVal(int(generation_best[i]))
-        best_wave = synth_waveform.create(synthPara, int(SAMPLE_RATE * PLAYBACK_DURATION_SECONDS), SAMPLE_RATE, NoteNum.NN_C5)
+        best_wave = synth_waveform.create(synthPara, int(SAMPLE_RATE * BEST_PLAY_DURATION), SAMPLE_RATE, NoteNum.NN_C5)
         play_audio(best_wave, SAMPLE_RATE)
 
     best_ind = tools.selBest(population, k=1)[0]
@@ -329,13 +331,13 @@ def main():
     for i, para in enumerate(synthPara):
         para.setVal(int(best_ind[i]))
 
-    best_generated = synth_waveform.create(synthPara, FRAME_SIZE, SAMPLE_RATE, NoteNum.NN_C5)
-    best_spectrum = compute_spectrum(best_generated, FRAME_SIZE, MAX_EVAL_FREQ)
+    best_generated = synth_waveform.create(synthPara, FRAME_SIZE_SAMPLE, SAMPLE_RATE, NoteNum.NN_C5)
+    best_spectrum = compute_spectrum(best_generated, FRAME_SIZE_SAMPLE, MAX_EVAL_FREQ)
     if MELSPECTRUM_MODE:
         xf = librosa.mel_frequencies(n_mels=MEL_BANDS, fmax=MAX_EVAL_FREQ)
     else:
-        max_bin = _spectrum_range(FRAME_SIZE, SAMPLE_RATE, MAX_EVAL_FREQ)
-        xf = np.arange(1, max_bin + 1) * SAMPLE_RATE / FRAME_SIZE
+        max_bin = _spectrum_range(FRAME_SIZE_SAMPLE, SAMPLE_RATE, MAX_EVAL_FREQ)
+        xf = np.arange(1, max_bin + 1) * SAMPLE_RATE / FRAME_SIZE_SAMPLE
 
     plot.plot(xf, instInput, color='orange', label='target')
     generated_line, = plot.plot(xf, best_spectrum, color='red', label='generated')
@@ -346,8 +348,8 @@ def main():
 
     for i in range(3):
         print(f"Validation iteration {i+1}/3")
-        validation = synth_waveform.create(synthPara, FRAME_SIZE, SAMPLE_RATE, NoteNum.NN_C5)
-        validation_spectrum = compute_spectrum(validation, FRAME_SIZE)
+        validation = synth_waveform.create(synthPara, FRAME_SIZE_SAMPLE, SAMPLE_RATE, NoteNum.NN_C5)
+        validation_spectrum = compute_spectrum(validation, FRAME_SIZE_SAMPLE, MAX_EVAL_FREQ)
         diff_input = np.sqrt(np.square(instInput - validation_spectrum))
         diff_input_sum = np.sum(diff_input)
         print(f"  diffInputSum: {diff_input_sum:.2f}")
