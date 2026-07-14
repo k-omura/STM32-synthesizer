@@ -868,7 +868,7 @@ stm32synth_res_t stm32synth_chord_addsque(stm32synth_config_t *_config, stm32syn
     squ_duty = _config->waveform[_configChord->channel][_wnum].squ_duty;
     squ_level = _config->waveform[_configChord->channel][_wnum].squ_level;
 
-    q15_t buff[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
+    // q15_t buff[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
 
     /*
     int8_t shift;
@@ -883,11 +883,12 @@ stm32synth_res_t stm32synth_chord_addsque(stm32synth_config_t *_config, stm32syn
 
     for (uint16_t t = 0; t < STM32SYNTH_HALF_NUM_SAMPLING; t++)
     {
-        buff[t] = (_radBuff[t] < dutyHighRad) ? level : -level;
+        // buff[t] = (_radBuff[t] < dutyHighRad) ? level : -level;
+        _chordBuff[t] += (_radBuff[t] < dutyHighRad) ? level : -level;
     }
 
     // arm_scale_q15(buff, scaleFract, shift, buff, STM32SYNTH_HALF_NUM_SAMPLING);
-    arm_add_q15(_chordBuff, buff, _chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
+    // arm_add_q15(_chordBuff, buff, _chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
 
     return res;
 }
@@ -902,7 +903,7 @@ stm32synth_res_t stm32synth_chord_addtrgl(stm32synth_config_t *_config, stm32syn
         return res;
     }
 
-    q15_t buff[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
+    // q15_t buff[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
 
     /*
     int8_t shift;
@@ -926,17 +927,19 @@ stm32synth_res_t stm32synth_chord_addtrgl(stm32synth_config_t *_config, stm32syn
         if (_radBuff[t] < peakPoint_q15)
         {
             // buff[t] = (int16_t)stm32synth_fast_roundf(doubel_amp_up * (float32_t)_radBuff[t] + doubel_intercept_up);
-            buff[t] = (int16_t)(doubel_amp_up * (float32_t)_radBuff[t] + doubel_intercept_up);
+            // buff[t] = (int16_t)(doubel_amp_up * (float32_t)_radBuff[t] + doubel_intercept_up);
+            _chordBuff[t] += (int16_t)(doubel_amp_up * (float32_t)_radBuff[t] + doubel_intercept_up);
         }
         else
         {
             // buff[t] = (int16_t)stm32synth_fast_roundf(doubel_amp_down * (float32_t)_radBuff[t] - doubel_intercept_down);
-            buff[t] = (int16_t)(doubel_amp_down * (float32_t)_radBuff[t] - doubel_intercept_down);
+            // buff[t] = (int16_t)(doubel_amp_down * (float32_t)_radBuff[t] - doubel_intercept_down);
+            _chordBuff[t] += (int16_t)(doubel_amp_down * (float32_t)_radBuff[t] - doubel_intercept_down);
         }
     }
 
     // arm_scale_q15(buff, scaleFract, shift, buff, STM32SYNTH_HALF_NUM_SAMPLING);
-    arm_add_q15(_chordBuff, buff, _chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
+    // arm_add_q15(_chordBuff, buff, _chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
 
     return res;
 }
