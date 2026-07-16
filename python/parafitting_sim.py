@@ -21,14 +21,15 @@ from deap import base, creator, tools
 # local import
 from midi_para import MidiMsg, MidiCC, NoteNum, Parameter, GApara
 import synth_waveform
+#import nsynth
 
-FRAME_SIZE_TARGET    = 16384     # フレームサイズ(ターゲット音声のスペクトラム計算に使用)
-FRAME_SIZE_SAMPLE    = 16384     # フレームサイズ(テスト用音声のスペクトラム計算に使用)
+FRAME_SIZE_TARGET    = 4096      # フレームサイズ(ターゲット音声のスペクトラム計算に使用)
+FRAME_SIZE_SAMPLE    = 4096      # フレームサイズ(テスト用音声のスペクトラム計算に使用)
 SAMPLE_RATE          = 44100     # サンプリングレート
 MAX_EVAL_FREQ        = 10000     # 10 kHz 以上を評価に含めない
-TEST_PLAY_DURATION   = 0.2       # パラメータ変更時に再生する音声長
+TEST_PLAY_DURATION   = 0.05      # パラメータ変更時に再生する音声長
 BEST_PLAY_DURATION   = 1.0       # パラメータ変更時に再生する音声長
-NGEN                 = 1000      # GA世代数
+NGEN                 = 3000      # GA世代数
 MELSPECTRUM_MODE     = False     # メルスペクトラムを使用するかどうか
 MEL_BANDS            = 64        # メルバンド数
 
@@ -88,6 +89,35 @@ def _prepare_mel_spectrum(audio, frame_size, max_freq):
     return mel_db
 
 
+def _prepare_average_spectrum(audio, frame_size, max_freq):
+    if audio.ndim > 1:
+        audio = audio[:, 0]
+
+    audio = np.asarray(audio, dtype=np.float32)
+    if np.max(np.abs(audio)) > 0:
+        audio = audio / np.max(np.abs(audio))
+
+    total_samples = audio.shape[0]
+    if total_samples == 0:
+        audio = np.zeros(frame_size, dtype=np.float32)
+        total_samples = frame_size
+
+    spectra = []
+    for start in range(0, total_samples, frame_size):
+        frame = audio[start:start + frame_size]
+        if frame.shape[0] < frame_size:
+            padded = np.zeros(frame_size, dtype=np.float32)
+            padded[:frame.shape[0]] = frame
+            frame = padded
+
+        if MELSPECTRUM_MODE:
+            spectra.append(_prepare_mel_spectrum(frame, frame_size, max_freq))
+        else:
+            spectra.append(_prepare_fft_spectrum(frame, frame_size, max_freq))
+
+    return np.mean(np.asarray(spectra, dtype=np.float32), axis=0)
+
+
 def prepare_target_spectrum(wave_data, sample_rate, frame_size, max_freq=MAX_EVAL_FREQ):
     if wave_data.ndim > 1:
         wave_data = wave_data[:, 0]
@@ -97,9 +127,7 @@ def prepare_target_spectrum(wave_data, sample_rate, frame_size, max_freq=MAX_EVA
         num_samples = int(len(audio) * SAMPLE_RATE / sample_rate)
         audio = signal.resample(audio, num_samples)
 
-    if MELSPECTRUM_MODE:
-        return _prepare_mel_spectrum(audio, frame_size, max_freq)
-    return _prepare_fft_spectrum(audio, frame_size, max_freq)
+    return _prepare_average_spectrum(audio, frame_size, max_freq)
 
 
 def compute_spectrum(signal_data, frame_size, max_freq=MAX_EVAL_FREQ):
@@ -171,7 +199,7 @@ def main():
         Parameter("synth-squ1-volume", GApara.YES, 0, MidiMsg.CONTROLCHANGE, MidiCC.USER_WAVE1SQUAMP, 0, 127, 0),
         Parameter("synth-squ1-duty", GApara.YES, 0, MidiMsg.CONTROLCHANGE, MidiCC.USER_WAVE1SQUDUTY, 0, 127, 64),
         Parameter("synth-pitch1", GApara.NO, 0, MidiMsg.CONTROLCHANGE, MidiCC.USER_WAVE1PITCH, 0, 127, 64),
-        Parameter("synth-octave-shift1", GApara.NO, 0, MidiMsg.CONTROLCHANGE, MidiCC.USER_WAVE1OCTAVE, 40, 88, 64),
+        Parameter("synth-octave-shift1", GApara.NO, 0, MidiMsg.CONTROLCHANGE, MidiCC.USER_WAVE1OCTAVE, 52, 76, 64),
 
         # Waveform 2
         Parameter("synth-sin2-volume", GApara.YES, 0, MidiMsg.CONTROLCHANGE, MidiCC.USER_WAVE2SINEAMP, 0, 127, 0),
@@ -180,7 +208,7 @@ def main():
         Parameter("synth-squ2-volume", GApara.YES, 0, MidiMsg.CONTROLCHANGE, MidiCC.USER_WAVE2SQUAMP, 0, 127, 0),
         Parameter("synth-squ2-duty", GApara.YES, 0, MidiMsg.CONTROLCHANGE, MidiCC.USER_WAVE2SQUDUTY, 0, 127, 64),
         Parameter("synth-pitch2", GApara.YES, 0, MidiMsg.CONTROLCHANGE, MidiCC.USER_WAVE2PITCH, 0, 127, 64),
-        Parameter("synth-octave-shift2", GApara.NO, 0, MidiMsg.CONTROLCHANGE, MidiCC.USER_WAVE2OCTAVE, 40, 88, 64),
+        Parameter("synth-octave-shift2", GApara.YES, 0, MidiMsg.CONTROLCHANGE, MidiCC.USER_WAVE2OCTAVE, 52, 76, 64),
         Parameter("synth-distortion", GApara.YES, 0, MidiMsg.CONTROLCHANGE, MidiCC.USER_DISTORTION_LEVEL, 0, 127, 127),
 
         # ADSR
@@ -289,7 +317,7 @@ def main():
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     toolbox.register("evaluate", evaluate_parameters)
     toolbox.register("mate", crossover_bounded)
-    toolbox.register("mutate", mutate_bounded, mu=0, sigma=40, indpb=0.4)
+    toolbox.register("mutate", mutate_bounded, mu=0, sigma=40, indpb=0.6)
     toolbox.register("select", tools.selTournament, tournsize=3)
 
     population = toolbox.population(n=10)

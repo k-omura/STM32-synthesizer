@@ -27,12 +27,10 @@
 #define STM32SYNTH_HALF_NUM_SAMPLING_BY_4 (STM32SYNTH_HALF_NUM_SAMPLING >> 2)                 //!< STM32SYNTH_HALF_NUM_SAMPLING / 4
 #define STM32SYNTH_NUM_SAMPLING (STM32SYNTH_HALF_NUM_SAMPLING + STM32SYNTH_HALF_NUM_SAMPLING) //!< buff size for mono
 #define STM32SYNTH_NUM_I2SBUFF (STM32SYNTH_NUM_SAMPLING + STM32SYNTH_NUM_SAMPLING)            //!< buff size for i2s (L+R)
-#define STM32SYNTH_PRE_SAMPLE (100)                                                           //!< number of samples for pre-sampling (for filter)
 #define STM32SYNTH_MAX_FREQ (STM32SYNTH_SAMPLE_FREQ >> 1)                                     //!< maximum frequency (Hz)
 #define STM32SYNTH_MAX_FREQ_NOTE (34579)                                                      //!< maximum frequency note
 #define STM32SYNTH_MIN_FREQ (20)                                                              //!< minimum frequency (Hz)
-#define STM32SYNTH_SAMPLE_FORFILT (STM32SYNTH_HALF_NUM_SAMPLING + STM32SYNTH_PRE_SAMPLE)      //!< number of samples for filter
-#define STM32SYNTH_MAX_CHORD (25)                                                             //!< maximum number of chords
+#define STM32SYNTH_MAX_CHORD (32)                                                             //!< maximum number of chords
 #define STM32SYNTH_CHANNEL_NUMBER (16)                                                        //!< Number of MIDI channels
 #define STM32SYNTH_WAVEFORM_NUM_PERCHORD (2)                                                  //!< Number of waveforms per chord
 #define STM32SYNTH_REVERB_NUM (4)                                                             //!< Number of reverb buffers
@@ -271,7 +269,6 @@ typedef struct
     struct Buff
     {
         q15_t *back;
-        q15_t *presample;
 #ifdef STM32SYNTH_REVERB
         q15_t (*reverb)[STM32SYNTH_HALF_NUM_SAMPLING];
 #endif /* STM32SYNTH_REVERB */

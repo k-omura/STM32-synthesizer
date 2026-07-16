@@ -123,7 +123,11 @@ stm32synth_res_t stm32synth_component_updateLPF(stm32synth_config_filter_t *_con
 	_configFilter->pCoeffs[4] = -(int16_t)(((-2.0f * cos_omega_c) / a0) * (float32_t)(STM32SYNTH_Q15_MAX >> STM32SYNTH_FILT_SHIFT)); // a1
 	_configFilter->pCoeffs[5] = -(int16_t)(((1.0f - alfa) / a0) * (float32_t)(STM32SYNTH_Q15_MAX >> STM32SYNTH_FILT_SHIFT));		 // a2
 
-	arm_biquad_cascade_df1_init_q15(&_configFilter->instance, 1, _configFilter->pCoeffs, _configFilter->pState, STM32SYNTH_FILT_SHIFT);
+	// Keep pState continuous across blocks; only refresh coeff/pointer metadata.
+	_configFilter->instance.numStages = 1;
+	_configFilter->instance.pCoeffs = _configFilter->pCoeffs;
+	_configFilter->instance.pState = _configFilter->pState;
+	_configFilter->instance.postShift = STM32SYNTH_FILT_SHIFT;
 	_configFilter->state = STM32SYNTH_PARA_NOCHANGE;
 
 	return res;
@@ -168,7 +172,11 @@ stm32synth_res_t stm32synth_component_updateHPF(stm32synth_config_filter_t *_con
 	_configFilter->pCoeffs[4] = -(int16_t)(((-2.0f * cos_omega_c) / a0) * (float32_t)(STM32SYNTH_Q15_MAX >> STM32SYNTH_FILT_SHIFT)); // a1
 	_configFilter->pCoeffs[5] = -(int16_t)(((1.0f - alfa) / a0) * (float32_t)(STM32SYNTH_Q15_MAX >> STM32SYNTH_FILT_SHIFT));		 // a2
 
-	arm_biquad_cascade_df1_init_q15(&_configFilter->instance, 1, _configFilter->pCoeffs, _configFilter->pState, STM32SYNTH_FILT_SHIFT);
+	// Keep pState continuous across blocks; only refresh coeff/pointer metadata.
+	_configFilter->instance.numStages = 1;
+	_configFilter->instance.pCoeffs = _configFilter->pCoeffs;
+	_configFilter->instance.pState = _configFilter->pState;
+	_configFilter->instance.postShift = STM32SYNTH_FILT_SHIFT;
 	_configFilter->state = STM32SYNTH_PARA_NOCHANGE;
 
 	return res;
@@ -224,7 +232,11 @@ stm32synth_res_t stm32synth_component_updateLSF(stm32synth_config_filter_t *_con
 	_configFilter->pCoeffs[4] = (int16_t)(((2.0f * (shelfAm1 + shelfAp1Cos)) / a0) * (float32_t)(STM32SYNTH_Q15_MAX >> STM32SYNTH_FILT_SHIFT));			 // a1
 	_configFilter->pCoeffs[5] = -(int16_t)(((shelfAp1 + shelfAm1Cos - beta) / a0) * (float32_t)(STM32SYNTH_Q15_MAX >> STM32SYNTH_FILT_SHIFT));			 // a2
 
-	arm_biquad_cascade_df1_init_q15(&_configFilter->instance, 1, _configFilter->pCoeffs, _configFilter->pState, STM32SYNTH_FILT_SHIFT);
+	// Keep pState continuous across blocks; only refresh coeff/pointer metadata.
+	_configFilter->instance.numStages = 1;
+	_configFilter->instance.pCoeffs = _configFilter->pCoeffs;
+	_configFilter->instance.pState = _configFilter->pState;
+	_configFilter->instance.postShift = STM32SYNTH_FILT_SHIFT;
 	_configFilter->state = STM32SYNTH_PARA_NOCHANGE;
 
 	return res;

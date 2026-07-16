@@ -16,7 +16,6 @@
 
 static stm32synth_config_t config;
 static q15_t audiobuffer_back[STM32SYNTH_NUM_SAMPLING];
-static q15_t audiobuffer_presample[STM32SYNTH_PRE_SAMPLE];
 
 #ifdef STM32SYNTH_REVERB
 static q15_t audiobuffer_reverb[STM32SYNTH_REVERB_NUM][STM32SYNTH_HALF_NUM_SAMPLING];
@@ -49,7 +48,6 @@ stm32synth_res_t stm32synth_init(
 #ifdef STM32SYNTH_REVERB
 	config.buff.reverb = audiobuffer_reverb;
 #endif /* STM32SYNTH_REVERB */
-	config.buff.presample = audiobuffer_presample;
 
 	if (res == STM32SYNTH_RES_NG)
 	{

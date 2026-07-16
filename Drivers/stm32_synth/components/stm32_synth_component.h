@@ -42,7 +42,6 @@ typedef enum
 typedef struct
 {
     q15_t rad[STM32SYNTH_WAVEFORM_NUM_PERCHORD];
-    q15_t presample[STM32SYNTH_PRE_SAMPLE];
 
     float32_t velocity;
     uint16_t noteNum[STM32SYNTH_NOW_PREV_CNT];

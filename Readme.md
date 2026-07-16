@@ -12,7 +12,7 @@ A binary file is prepared for the controller designer, so download it and write 
 - I2S Sound Module. [for example this](https://www.adafruit.com/product/3006)
 
 ## Basic features
-- Polyphonic (In actual use, a maximum of 12 notes).
+- Polyphonic (a maximum of 32 notes).
 - MIDI data format.
 - Designed to be operated from the outside via SPI or USB.
 - 16ch (GM 128 Instruments, 47 Drum Sounds(10ch)).
@@ -31,7 +31,6 @@ A binary file is prepared for the controller designer, so download it and write 
 - What you want.
 
 ## Known issue(s)
-- The number of simultaneous notes that can be played depends on the settings, but it is around 12 notes. If this number is exceeded, the unit may stop working.
 - Noise occurs at low volume.
 
 ## Demo

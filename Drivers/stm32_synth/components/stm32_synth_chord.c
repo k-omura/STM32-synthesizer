@@ -183,8 +183,6 @@ stm32synth_res_t stm32synth_component_noteonChord(stm32synth_config_t *_config, 
                     chords[cc].lpf.para.cutoff_freq_nn.absolute = _config->filter[_inpurChord->channel].cutoff_freq_nn.absolute;
                     stm32synth_component_updateLPF(&chords[cc].lpf, 0);
                 }
-
-                arm_fill_q15(0, chords[cc].presample, STM32SYNTH_PRE_SAMPLE);
             }
 #endif /* STM32SYNTH_CHORDFILTER */
 #endif /* STM32SYNTH_FILTER */
@@ -281,7 +279,7 @@ stm32synth_res_t stm32synth_component_disableChord(stm32synth_chord_t *_configCh
 stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, stm32synth_update_half_t _half)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
-    q15_t chordsBuff[STM32SYNTH_SAMPLE_FORFILT] = {0};
+    q15_t chordsBuff[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
     uint16_t lfoUpdateStatus = 0;
     int8_t shift;
     q15_t scaleFract;
@@ -326,7 +324,7 @@ stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, s
             lfoUpdateStatus |= (0x0001 << chords[cc].channel);
         }
 
-        stm32synth_chord_updateChord(_config, &chords[cc], (chordsBuff + STM32SYNTH_PRE_SAMPLE), _half);
+        stm32synth_chord_updateChord(_config, &chords[cc], chordsBuff, _half);
     }
 
 #ifdef STM32SYNTH_FILTER
@@ -342,15 +340,9 @@ stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, s
             stm32synth_component_updateLPF(&_config->filter_master, (int32_t)_config->wow_master.val);
         }
 
-        // pre-sample for filter
-        arm_copy_q15(_config->buff.presample, chordsBuff, STM32SYNTH_PRE_SAMPLE);
-
-        // prepare pre-sample for filter (for next cycle)
-        arm_copy_q15((chordsBuff + STM32SYNTH_HALF_NUM_SAMPLING), _config->buff.presample, STM32SYNTH_PRE_SAMPLE);
-
         // input filter
 #ifdef STM32SYNTH_FILT_CMSIS
-        arm_biquad_cascade_df1_fast_q15(&_config->filter_master.instance, chordsBuff, chordsBuff, STM32SYNTH_SAMPLE_FORFILT);
+        arm_biquad_cascade_df1_fast_q15(&_config->filter_master.instance, chordsBuff, chordsBuff, STM32SYNTH_HALF_NUM_SAMPLING);
 #endif /* STM32SYNTH_FILT_CMSIS */
     }
 #endif /* STM32SYNTH_FILTER */
@@ -358,9 +350,9 @@ stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, s
     // Master volume & Tremolo
     stm32synth_component_f32toq15fract((1 + _config->tre_master.val), &scaleFract, &shift);
 #ifndef STM32SYNTH_I2S
-    arm_scale_q15((chordsBuff + STM32SYNTH_PRE_SAMPLE), scaleFract, shift, (chordsBuff + STM32SYNTH_PRE_SAMPLE), STM32SYNTH_HALF_NUM_SAMPLING);
+    arm_scale_q15(chordsBuff, scaleFract, shift, chordsBuff, STM32SYNTH_HALF_NUM_SAMPLING);
 #else
-    arm_scale_q15((chordsBuff + STM32SYNTH_PRE_SAMPLE), scaleFract, shift, mbuff_p, STM32SYNTH_HALF_NUM_SAMPLING);
+    arm_scale_q15(chordsBuff, scaleFract, shift, mbuff_p, STM32SYNTH_HALF_NUM_SAMPLING);
 #endif /* STM32SYNTH_I2S */
 
     // Add dithering
@@ -419,7 +411,7 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
         return res;
     }
 
-    q15_t chordBuff[STM32SYNTH_SAMPLE_FORFILT] = {0};
+    q15_t chordBuff[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
     q15_t radBuff[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
     float32_t amp = _config->volume[_configChord->channel] * _configChord->velocity;
     int8_t shift;
@@ -466,8 +458,8 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
 #ifdef STM32SYNTH_CHORDFILTER
     int16_t envelope_cutoff;
     stm32synth_chord_envelope(&(_config->envelope[_configChord->channel].cutoff), &(_configChord->envelope.cutoff), &envelope_cutoff);
-#endif
 #endif /* STM32SYNTH_CHORDFILTER */
+#endif /* STM32SYNTH_FILTER */
 
     // Convert frequency to phase
     if (_configChord->channel == STM32SYNTH_MIDINN_DRUMCH)
@@ -516,15 +508,15 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
 
                 if (drumConfigList[drumConfigIndex].waveformType & STM32SYNTH_CHORD_DRUM_TYPE_SIN)
                 {
-                    stm32synth_chord_addsine(_config, _configChord, chordBuff + STM32SYNTH_PRE_SAMPLE, radBuff, ww);
+                    stm32synth_chord_addsine(_config, _configChord, chordBuff, radBuff, ww);
                 }
                 if (drumConfigList[drumConfigIndex].waveformType & STM32SYNTH_CHORD_DRUM_TYPE_TRI)
                 {
-                    stm32synth_chord_addtrgl(_config, _configChord, chordBuff + STM32SYNTH_PRE_SAMPLE, radBuff, ww);
+                    stm32synth_chord_addtrgl(_config, _configChord, chordBuff, radBuff, ww);
                 }
                 if (drumConfigList[drumConfigIndex].waveformType & STM32SYNTH_CHORD_DRUM_TYPE_SQU)
                 {
-                    stm32synth_chord_addsque(_config, _configChord, chordBuff + STM32SYNTH_PRE_SAMPLE, radBuff, ww);
+                    stm32synth_chord_addsque(_config, _configChord, chordBuff, radBuff, ww);
                 }
             }
         }
@@ -538,15 +530,15 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
         if (drumConfigList[drumConfigIndex].lpffc_nn != STM32SYNTH_MIDINN_FILTER_DISABLE)
         {
 #ifdef STM32SYNTH_FILT_CMSIS
-            arm_biquad_cascade_df1_fast_q15(&_configChord->lpf.instance, chordBuff, chordBuff, STM32SYNTH_SAMPLE_FORFILT); // LPF
-#endif                                                                                                                     /* STM32SYNTH_FILT_CMSIS */
+            arm_biquad_cascade_df1_fast_q15(&_configChord->lpf.instance, chordBuff, chordBuff, STM32SYNTH_HALF_NUM_SAMPLING); // LPF
+#endif                                                                                                                        /* STM32SYNTH_FILT_CMSIS */
         }
 
         if (drumConfigList[drumConfigIndex].hpffc_nn != STM32SYNTH_MIDINN_FILTER_DISABLE)
         {
 #ifdef STM32SYNTH_FILT_CMSIS
-            arm_biquad_cascade_df1_fast_q15(&_configChord->hpf.instance, chordBuff, chordBuff, STM32SYNTH_SAMPLE_FORFILT); // HPF
-#endif                                                                                                                     /* STM32SYNTH_FILT_CMSIS */
+            arm_biquad_cascade_df1_fast_q15(&_configChord->hpf.instance, chordBuff, chordBuff, STM32SYNTH_HALF_NUM_SAMPLING); // HPF
+#endif                                                                                                                        /* STM32SYNTH_FILT_CMSIS */
         }
 
 #ifdef STM32SYNTH_DRUM_TESTMODE
@@ -578,9 +570,9 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
 
             stm32synth_chord_makerad(_config, _configChord, nn[ww], radBuff, ww); // light weight frequency change
 
-            stm32synth_chord_addsine(_config, _configChord, chordBuff + STM32SYNTH_PRE_SAMPLE, radBuff, ww);
-            stm32synth_chord_addsque(_config, _configChord, chordBuff + STM32SYNTH_PRE_SAMPLE, radBuff, ww);
-            stm32synth_chord_addtrgl(_config, _configChord, chordBuff + STM32SYNTH_PRE_SAMPLE, radBuff, ww);
+            stm32synth_chord_addsine(_config, _configChord, chordBuff, radBuff, ww);
+            stm32synth_chord_addsque(_config, _configChord, chordBuff, radBuff, ww);
+            stm32synth_chord_addtrgl(_config, _configChord, chordBuff, radBuff, ww);
         }
 
 #ifdef STM32SYNTH_FILTER
@@ -609,20 +601,14 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
             }
             // */
 
-            // pre-sample for filter
-            arm_copy_q15(_configChord->presample, chordBuff, STM32SYNTH_PRE_SAMPLE);
-
-            // prepare pre-sample for filter (for next cycle)
-            arm_copy_q15((chordBuff + STM32SYNTH_HALF_NUM_SAMPLING), _configChord->presample, STM32SYNTH_PRE_SAMPLE);
-
 #ifdef STM32SYNTH_FILT_CMSIS
             if (_config->filter[_configChord->channel].type == STM32SYNTH_FILTERTYPE_HPF)
             {
-                arm_biquad_cascade_df1_fast_q15(&_configChord->hpf.instance, chordBuff, chordBuff, STM32SYNTH_SAMPLE_FORFILT); // Filter
+                arm_biquad_cascade_df1_fast_q15(&_configChord->hpf.instance, chordBuff, chordBuff, STM32SYNTH_HALF_NUM_SAMPLING); // Filter
             }
             else
             {
-                arm_biquad_cascade_df1_fast_q15(&_configChord->lpf.instance, chordBuff, chordBuff, STM32SYNTH_SAMPLE_FORFILT); // Filter
+                arm_biquad_cascade_df1_fast_q15(&_configChord->lpf.instance, chordBuff, chordBuff, STM32SYNTH_HALF_NUM_SAMPLING); // Filter
             }
 #endif /* STM32SYNTH_FILT_CMSIS */
 
@@ -639,8 +625,8 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
         q15_t chordMax;
         uint32_t chordMaxIndex;
         q15_t distortion = distortion16 << STM32SYNTH_CHORD_DISTORTION_SHIFT;
-        arm_absmax_q15(chordBuff + STM32SYNTH_PRE_SAMPLE, STM32SYNTH_HALF_NUM_SAMPLING, &chordMax, &chordMaxIndex);
-        arm_clip_q15(chordBuff + STM32SYNTH_PRE_SAMPLE, chordBuff + STM32SYNTH_PRE_SAMPLE, -distortion, distortion, STM32SYNTH_HALF_NUM_SAMPLING);
+        arm_absmax_q15(chordBuff, STM32SYNTH_HALF_NUM_SAMPLING, &chordMax, &chordMaxIndex);
+        arm_clip_q15(chordBuff, chordBuff, -distortion, distortion, STM32SYNTH_HALF_NUM_SAMPLING);
         if (chordMax > distortion)
         {
             amp = amp * (float32_t)chordMax / (float32_t)distortion;
@@ -649,10 +635,10 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
 
     // Amp
     stm32synth_component_f32toq15fract(amp, &scaleFract, &shift);
-    arm_scale_q15(chordBuff + STM32SYNTH_PRE_SAMPLE, scaleFract, shift, chordBuff + STM32SYNTH_PRE_SAMPLE, STM32SYNTH_HALF_NUM_SAMPLING);
+    arm_scale_q15(chordBuff, scaleFract, shift, chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
 
     // Add to master array
-    arm_add_q15(chordBuff + STM32SYNTH_PRE_SAMPLE, _pbuff, _pbuff, STM32SYNTH_HALF_NUM_SAMPLING);
+    arm_add_q15(chordBuff, _pbuff, _pbuff, STM32SYNTH_HALF_NUM_SAMPLING);
 
     return res;
 }
@@ -948,7 +934,7 @@ stm32synth_res_t stm32synth_chord_addnoise(stm32synth_config_t *_config, float32
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
 
-    q15_t buff[STM32SYNTH_SAMPLE_FORFILT] = {0};
+    q15_t buff[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
 
     // scale
     float32_t scale = _amp * 0.007f;
@@ -963,7 +949,7 @@ stm32synth_res_t stm32synth_chord_addnoise(stm32synth_config_t *_config, float32
         xs_state = 0xA5A5A5A5u; // seed
     }
 
-    for (uint16_t t = 0; t < STM32SYNTH_SAMPLE_FORFILT; t += 2)
+    for (uint16_t t = 0; t < STM32SYNTH_HALF_NUM_SAMPLING; t += 2)
     {
         // xorshift32 -- 3 xor/shift ops
         xs_state ^= xs_state << 13;
@@ -977,8 +963,8 @@ stm32synth_res_t stm32synth_chord_addnoise(stm32synth_config_t *_config, float32
         buff[t + 1] = (q15_t)(*(int16_t *)&hi);
     }
 
-    arm_scale_q15(buff, scaleFract, shift, buff, STM32SYNTH_SAMPLE_FORFILT);
-    arm_add_q15(_chordBuff, buff, _chordBuff, STM32SYNTH_SAMPLE_FORFILT);
+    arm_scale_q15(buff, scaleFract, shift, buff, STM32SYNTH_HALF_NUM_SAMPLING);
+    arm_add_q15(_chordBuff, buff, _chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
 
     return res;
 }
