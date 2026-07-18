@@ -15,7 +15,11 @@
 #include "components/stm32_synth_multiplech.h"
 
 static stm32synth_config_t config;
+#ifdef STM32SYNTH_I2S
+static q15_t audiobuffer_back[STM32SYNTH_AUDIO_STEREO_NUM][STM32SYNTH_NUM_SAMPLING];
+#else
 static q15_t audiobuffer_back[STM32SYNTH_NUM_SAMPLING];
+#endif
 
 #ifdef STM32SYNTH_REVERB
 static q15_t audiobuffer_reverb[STM32SYNTH_REVERB_NUM][STM32SYNTH_HALF_NUM_SAMPLING];
@@ -158,7 +162,7 @@ stm32synth_res_t stm32synth_init(
 #ifdef STM32SYNTH_FILTER
 		config.filter_master.para.type = STM32SYNTH_FILTERTYPE_LSF;
 		config.filter_master.para.q_factor = 1.0f;
-		config.filter_master.para.cutoff_freq_nn.absolute = (78 << 8);
+		config.filter_master.para.cutoff_freq_nn.absolute = (127 << 8); // Disable filter by default
 
 		if (config.filter_master.para.type == STM32SYNTH_FILTERTYPE_LSF)
 		{
@@ -171,10 +175,13 @@ stm32synth_res_t stm32synth_init(
 #endif /* STM32SYNTH_FILTER */
 
 		// Pan
-		config.pan.l_level = 1.0f;
-		config.pan.r_level = 1.0f;
-		stm32synth_component_f32toq15fract(config.pan.l_level, &config.pan.l_scaleFract, &config.pan.l_shift);
-		stm32synth_component_f32toq15fract(config.pan.r_level, &config.pan.r_scaleFract, &config.pan.r_shift);
+		for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
+		{
+			config.pan[cc].l_level = 1.0f;
+			config.pan[cc].r_level = 1.0f;
+			stm32synth_component_f32toq15fract(config.pan[cc].l_level, &config.pan[cc].l_scaleFract, &config.pan[cc].l_shift);
+			stm32synth_component_f32toq15fract(config.pan[cc].r_level, &config.pan[cc].r_scaleFract, &config.pan[cc].r_shift);
+		}
 
 		// Reverb
 #ifdef STM32SYNTH_REVERB

@@ -105,10 +105,13 @@ stm32synth_res_t stm32synth_multich_clear(stm32synth_config_t *_config)
     }
 
     // Pan
-    _config->pan.l_level = 1.0f;
-    _config->pan.r_level = 1.0f;
-    stm32synth_component_f32toq15fract(_config->pan.l_level, &_config->pan.l_scaleFract, &_config->pan.l_shift);
-    stm32synth_component_f32toq15fract(_config->pan.r_level, &_config->pan.r_scaleFract, &_config->pan.r_shift);
+    for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
+    {
+        _config->pan[cc].l_level = 1.0f;
+        _config->pan[cc].r_level = 1.0f;
+        stm32synth_component_f32toq15fract(_config->pan[cc].l_level, &_config->pan[cc].l_scaleFract, &_config->pan[cc].l_shift);
+        stm32synth_component_f32toq15fract(_config->pan[cc].r_level, &_config->pan[cc].r_scaleFract, &_config->pan[cc].r_shift);
+    }
 
 #ifdef STM32SYNTH_FILTER
     // LPF

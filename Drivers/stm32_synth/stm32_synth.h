@@ -31,6 +31,7 @@
 #define STM32SYNTH_MAX_FREQ_NOTE (34579)                                                      //!< maximum frequency note
 #define STM32SYNTH_MIN_FREQ (20)                                                              //!< minimum frequency (Hz)
 #define STM32SYNTH_MAX_CHORD (32)                                                             //!< maximum number of chords
+#define STM32SYNTH_AUDIO_STEREO_NUM (2)                                                       //!< number of audio channels
 #define STM32SYNTH_CHANNEL_NUMBER (16)                                                        //!< Number of MIDI channels
 #define STM32SYNTH_WAVEFORM_NUM_PERCHORD (2)                                                  //!< Number of waveforms per chord
 #define STM32SYNTH_REVERB_NUM (4)                                                             //!< Number of reverb buffers
@@ -268,7 +269,11 @@ typedef struct
 {
     struct Buff
     {
+    #ifdef STM32SYNTH_I2S
+        q15_t (*back)[STM32SYNTH_NUM_SAMPLING];
+    #else
         q15_t *back;
+    #endif
 #ifdef STM32SYNTH_REVERB
         q15_t (*reverb)[STM32SYNTH_HALF_NUM_SAMPLING];
 #endif /* STM32SYNTH_REVERB */
@@ -284,7 +289,7 @@ typedef struct
     stm32synth_config_adsr_t adsr[STM32SYNTH_CHANNEL_NUMBER];
     stm32synth_config_envelope_t envelope[STM32SYNTH_CHANNEL_NUMBER];
     stm32synth_phonic_t phonic[STM32SYNTH_CHANNEL_NUMBER];
-    stm32synth_config_pan_t pan;
+    stm32synth_config_pan_t pan[STM32SYNTH_CHANNEL_NUMBER];
 
     stm32synth_config_lfo_t vib[STM32SYNTH_CHANNEL_NUMBER];
     stm32synth_config_lfo_t tre[STM32SYNTH_CHANNEL_NUMBER];

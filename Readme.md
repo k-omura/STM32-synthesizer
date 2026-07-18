@@ -1,5 +1,5 @@
 # STM32 Digital Synthesizer
-Virtual Analog Synthesizer General-MIDI(GM) Sound Source
+Virtual Analog Synthesizer General-MIDI(GM) Sound Source with Very Low Cost MCU.
 
 ## Digital synthesizer project with STM32.
 The purpose of this project is to make a sound just by creating a simple synthesizer controller.  
@@ -31,7 +31,8 @@ A binary file is prepared for the controller designer, so download it and write 
 - What you want.
 
 ## Known issue(s)
-- Noise occurs at low volume.
+- Delays in sound production may occur depending on input conditions, such as sending a large number of Note-On messages simultaneously.
+- Please report if you find any issues.
 
 ## Demo
 - [Introduction of each function](https://www.youtube.com/watch?v=JlslueGmlfo)

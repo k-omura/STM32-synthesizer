@@ -244,11 +244,11 @@ stm32synth_res_t stm32synth_midi_inputmidiCC(stm32synth_config_t *_config, uint8
         }
 
     case STM32SYNTH_MIDICC_PAN:
-        _config->pan.r_level = (float32_t)_val / 64.0f;
-        _config->pan.l_level = (float32_t)(128 - _val) / 64.0f;
+        _config->pan[_ch].r_level = (float32_t)_val / 64.0f;
+        _config->pan[_ch].l_level = (float32_t)(128 - _val) / 64.0f;
 
-        stm32synth_component_f32toq15fract(_config->pan.l_level, &_config->pan.l_scaleFract, &_config->pan.l_shift);
-        stm32synth_component_f32toq15fract(_config->pan.r_level, &_config->pan.r_scaleFract, &_config->pan.r_shift);
+        stm32synth_component_f32toq15fract(_config->pan[_ch].l_level, &_config->pan[_ch].l_scaleFract, &_config->pan[_ch].l_shift);
+        stm32synth_component_f32toq15fract(_config->pan[_ch].r_level, &_config->pan[_ch].r_scaleFract, &_config->pan[_ch].r_shift);
 
         break;
 
@@ -546,7 +546,7 @@ stm32synth_res_t stm32synth_midi_inputmidiCC(stm32synth_config_t *_config, uint8
         {
             break; // Ignore reverb control when CableNum filter is on
         }
-        _config->reverb.level = (float32_t)_val * 0.8f / 127.0f; // Make sure it is below 0.8
+        _config->reverb.level = (float32_t)_val * 0.78f / 127.0f; // Make sure it is below 0.78
         stm32synth_component_f32toq15fract(_config->reverb.level, &_config->reverb.scaleFract, &_config->reverb.shift);
         break;
 #endif /* STM32SYNTH_REVERB */

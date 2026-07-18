@@ -21,8 +21,8 @@
  * @brief Update DAC buffer with audio samples from the back buffer
  *
  * This function converts audio samples from the back buffer to the DAC output buffer.
- * It supports both mono (I2S) and stereo configurations. In stereo mode, applies pan
- * scaling factors to the left and right channels independently.
+ * It supports both mono and I2S stereo configurations. In I2S mode, it copies the
+ * interleaved left/right back buffers directly into the DAC output buffer.
  *
  * @param[in] _config Pointer to the synthesizer configuration structure
  * @param[in] _start Starting sample index for the update
@@ -36,24 +36,16 @@ stm32synth_res_t stm32synth_component_updateDacbuff(stm32synth_config_t *_config
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
 
+#ifndef STM32SYNTH_I2S
 	// Pointer
 	q15_t *p_in = (&_config->buff.back[_start]);
-
-#ifndef STM32SYNTH_I2S
 	uint32_t out_counter = _start;
 	uint16_t *p_out = (uint16_t *)(&_config->buff.dac[out_counter]);
 #else
 	uint32_t out_counter = 2 * _start;
 	q15_t *p_out = (q15_t *)(&_config->buff.dac[out_counter]);
-
-	// Pan
-	q15_t inL[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
-	q15_t inR[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
-	q15_t *p_inL = inL;
-	q15_t *p_inR = inR;
-
-	arm_scale_q15(p_in, _config->pan.l_scaleFract, _config->pan.l_shift, inL, STM32SYNTH_HALF_NUM_SAMPLING);
-	arm_scale_q15(p_in, _config->pan.r_scaleFract, _config->pan.r_shift, inR, STM32SYNTH_HALF_NUM_SAMPLING);
+	q15_t *p_inL = &(_config->buff.back[0][_start]);
+	q15_t *p_inR = &(_config->buff.back[1][_start]);
 
 #endif /* STM32SYNTH_I2S */
 
