@@ -125,7 +125,8 @@ stm32synth_res_t stm32synth_component_noteonChord(stm32synth_config_t *_config, 
         if (
             ((chords[cc].channel == _inpurChord->channel) && (chords[cc].noteNum[0] == _inpurChord->noteNum[0])) || // comment out if computational resources are sufficient.
             (chords[cc].adsr.state == STM32SYNTH_ADSRSTATE_WAIT) ||
-            (_config->phonic[_inpurChord->channel] == STM32SYNTH_PHONIC_MONO))
+            (_config->phonic[_inpurChord->channel] == STM32SYNTH_PHONIC_MONO) ||
+            (_config->phonic[_inpurChord->channel] == STM32SYNTH_PHONIC_MONO_SUSTON))
         {
             chords[cc].channel = _inpurChord->channel;
             chords[cc].noteNum[0] = _inpurChord->noteNum[0];
@@ -620,7 +621,7 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
                 continue;
             }
 
-            stm32synth_chord_makerad(_config, _configChord, nn[ww], radBuff, ww); // light weight frequency change
+            stm32synth_chord_makerad(_config, _configChord, nn[ww], radBuff, ww);
 
             stm32synth_chord_addsine(_config, _configChord, chordBuff, radBuff, ww);
             stm32synth_chord_addsque(_config, _configChord, chordBuff, radBuff, ww);
@@ -645,6 +646,7 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
             {
                 if (_config->filter[_configChord->channel].type == STM32SYNTH_FILTERTYPE_HPF)
                 {
+                    stm32synth_component_updateHPF(&_configChord->hpf, (int32_t)_config->wow[_configChord->channel].val + envelope_cutoff);
                 }
                 else
                 {
@@ -685,20 +687,22 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
         }
     }
 
-    // Amp
-    stm32synth_component_f32toq15fract(amp, &scaleFract, &shift);
-    arm_scale_q15(chordBuff, scaleFract, shift, chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
-
     // Add to master array
 #ifdef STM32SYNTH_I2S
     q15_t chordBuffTemp[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
 
-    arm_scale_q15(chordBuff, _config->pan[_configChord->channel].l_scaleFract, _config->pan[_configChord->channel].l_shift, chordBuffTemp, STM32SYNTH_HALF_NUM_SAMPLING);
+    // Amp and Pan
+    stm32synth_component_f32toq15fract(amp * _config->pan[_configChord->channel].l_level, &scaleFract, &shift);
+    arm_scale_q15(chordBuff, scaleFract, shift, chordBuffTemp, STM32SYNTH_HALF_NUM_SAMPLING);
     arm_add_q15(_pbuffL, chordBuffTemp, _pbuffL, STM32SYNTH_HALF_NUM_SAMPLING);
 
-    arm_scale_q15(chordBuff, _config->pan[_configChord->channel].r_scaleFract, _config->pan[_configChord->channel].r_shift, chordBuffTemp, STM32SYNTH_HALF_NUM_SAMPLING);
+    stm32synth_component_f32toq15fract(amp * _config->pan[_configChord->channel].r_level, &scaleFract, &shift);
+    arm_scale_q15(chordBuff, scaleFract, shift, chordBuffTemp, STM32SYNTH_HALF_NUM_SAMPLING);
     arm_add_q15(_pbuffR, chordBuffTemp, _pbuffR, STM32SYNTH_HALF_NUM_SAMPLING);
 #else
+// Amp
+stm32synth_component_f32toq15fract(amp, &scaleFract, &shift);
+arm_scale_q15(chordBuff, scaleFract, shift, chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
 arm_add_q15(chordBuff, _pbuff, _pbuff, STM32SYNTH_HALF_NUM_SAMPLING);
 #endif /* STM32SYNTH_I2S */
 

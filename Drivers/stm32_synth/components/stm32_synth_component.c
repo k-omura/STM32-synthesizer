@@ -7,6 +7,7 @@
 
 #include "components/stm32_synth_component.h"
 #include "components/stm32_synth_fastmath.h"
+#include "components/stm32_synth_midi.h"
 
 /**
  * @def STM32SYNTH_FILT_SHIFT
@@ -253,20 +254,186 @@ stm32synth_res_t stm32synth_component_updateLSF(stm32synth_config_filter_t *_con
  */
 stm32synth_res_t stm32synth_component_f32toq15fract(float32_t _scale, q15_t *_scaleFract, int8_t *_shift)
 {
-	stm32synth_res_t res = STM32SYNTH_RES_OK;
-	int8_t shift = 0;
-	q15_t scaleFract;
-	uint16_t shifted = 1;
 
-	while ((float32_t)shifted < _scale)
+	uint32_t bits;
+	memcpy(&bits, &_scale, sizeof(bits));
+	int32_t exp = (int32_t)((bits >> 23) & 0xFFu) - 127;
+
+	int8_t shift;
+	float32_t shifted;
+
+	if (exp < 0)
 	{
-		shift++;
-		shifted <<= 1;
+		// _scale < 1.0f: 2^0 = 1 already satisfies shifted >= _scale
+		shift = 0;
+		shifted = 1.0f;
 	}
-	scaleFract = (int16_t)((_scale / (float32_t)shifted) * (float32_t)STM32SYNTH_Q15_MAX);
+	else if ((bits & 0x7FFFFFu) == 0u)
+	{
+		// _scale is exactly 2^exp (mantissa == 0): shifted == _scale
+		shift = (int8_t)exp;
+		shifted = _scale;
+	}
+	else
+	{
+		// 2^exp < _scale < 2^(exp+1): need the next power of 2
+		shift = (int8_t)(exp + 1);
+		shifted = (float32_t)(1u << (uint32_t)(exp + 1));
+	}
 
+	*_scaleFract = (q15_t)((_scale / shifted) * (float32_t)STM32SYNTH_Q15_MAX);
 	*_shift = shift;
-	*_scaleFract = scaleFract;
+
+	return STM32SYNTH_RES_OK;
+}
+
+/**
+ * @brief Initialize default synthesizer configuration
+ *
+ * Sets up all default parameter values for the synthesizer including volume, pitch,
+ * waveforms, ADSR envelopes, filters, LFOs, and other settings.
+ *
+ * @param[out] _config Pointer to the synthesizer configuration structure to initialize
+ *
+ * @return stm32synth_res_t Result code (STM32SYNTH_RES_OK on success)
+ */
+stm32synth_res_t stm32synth_component_initSynthConfig(stm32synth_config_t *_config)
+{
+	stm32synth_res_t res = STM32SYNTH_RES_OK;
+
+	// Parameter
+	for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
+	{
+		_config->volume[cc] = 0.5f;
+		_config->pitch[cc] = 0;
+		_config->distortion[cc] = 128;
+	}
+
+	// waveform
+	for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
+	{
+		_config->waveform[cc][STM32SYNTH_WAVEFORM_0].sin_level = 0.0f;
+		_config->waveform[cc][STM32SYNTH_WAVEFORM_0].tri_level = 0.0f;
+		_config->waveform[cc][STM32SYNTH_WAVEFORM_0].tri_peak = 0.5f;
+		_config->waveform[cc][STM32SYNTH_WAVEFORM_0].squ_level = 0.0f;
+		_config->waveform[cc][STM32SYNTH_WAVEFORM_0].squ_duty = 0.5f;
+	}
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].sin_level = 1.8f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].tri_level = 1.8f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].tri_peak = 0.35f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].squ_level = 2.0f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].squ_duty = 0.35f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].sin_level = 0.0f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].tri_level = 0.0f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].tri_peak = 0.35f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].squ_level = 1.8f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].squ_duty = 0.15f;
+
+	// ADSR
+	for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
+	{
+		_config->adsr[cc].attack_level = 2.0f;
+		_config->adsr[cc].attack_ms = 100;
+		_config->adsr[cc].decay_ms = 150;
+		_config->adsr[cc].release_ms = 500;
+	}
+	_config->adsr[STM32SYNTH_MIDINN_DRUMCH].attack_level = 3.5f;
+	_config->adsr[STM32SYNTH_MIDINN_DRUMCH].attack_ms = 0;
+	_config->adsr[STM32SYNTH_MIDINN_DRUMCH].decay_ms = 0;
+	_config->adsr[STM32SYNTH_MIDINN_DRUMCH].release_ms = 300;
+
+	// Envelope
+	for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
+	{
+		_config->envelope[cc].freq.finish_value = 64;
+		_config->envelope[cc].freq.time_ms = 0;
+	}
+	_config->envelope[STM32SYNTH_MIDINN_DRUMCH].freq.finish_value = -(3 << 8);
+	_config->envelope[STM32SYNTH_MIDINN_DRUMCH].freq.time_ms = 500;
+	_config->envelope[STM32SYNTH_MIDINN_DRUMCH].volume.finish_value = -0x40;
+	_config->envelope[STM32SYNTH_MIDINN_DRUMCH].volume.time_ms = 600;
+
+#ifdef STM32SYNTH_FILTER
+#ifdef STM32SYNTH_CHORDFILTER
+	// LPF
+	for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
+	{
+		_config->filter[cc].type = STM32SYNTH_FILTERTYPE_LPF;
+		_config->filter[cc].cutoff_freq_nn.absolute = 127 << 8;
+		_config->filter[cc].q_factor = 0.8f;
+	}
+#endif
+#endif /* STM32SYNTH_FILTER */
+
+	// LFO
+	stm32synth_config_lfo_t initLfo;
+	initLfo.amp = 64;
+	initLfo.freq = 0;
+	initLfo.type = STM32SYNTH_LFO_SIN;
+	initLfo.para.duty = 0.5f;
+	for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
+	{
+		_config->tre[cc] = initLfo;
+		_config->vib[cc] = initLfo;
+#ifdef STM32SYNTH_FILTER
+#ifdef STM32SYNTH_CHORDFILTER
+		_config->wow[cc] = initLfo;
+#endif
+#endif /* STM32SYNTH_FILTER */
+	}
+
+	// Phonic
+	for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
+	{
+		_config->phonic[cc] = STM32SYNTH_PHONIC_POLY_SUSTON;
+	}
+	_config->phonic[STM32SYNTH_MIDINN_DRUMCH] = STM32SYNTH_PHONIC_POLY_SUSTON;
+
+	// Distortion
+	for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
+	{
+		_config->distortion[cc] = 128;
+	}
+	_config->distortion[STM32SYNTH_MIDINN_DRUMCH] = 1;
+
+	// Master LFO
+	_config->tre_master = initLfo;
+	_config->vib_master = initLfo;
+#ifdef STM32SYNTH_FILTER
+	_config->wow_master = initLfo;
+#endif /* STM32SYNTH_FILTER */
+
+	// Master Filter
+#ifdef STM32SYNTH_FILTER
+	_config->filter_master.para.type = STM32SYNTH_FILTERTYPE_LSF;
+	_config->filter_master.para.q_factor = 1.0f;
+	_config->filter_master.para.cutoff_freq_nn.absolute = (127 << 8); // Disable filter by default
+
+	if (_config->filter_master.para.type == STM32SYNTH_FILTERTYPE_LSF)
+	{
+		stm32synth_component_updateLSF(&_config->filter_master, 0);
+	}
+	else
+	{
+		stm32synth_component_updateLPF(&_config->filter_master, 0);
+	}
+#endif /* STM32SYNTH_FILTER */
+
+	// Pan
+	for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
+	{
+		_config->pan[cc].l_level = 1.0f;
+		_config->pan[cc].r_level = 1.0f;
+	}
+
+	// Reverb
+#ifdef STM32SYNTH_REVERB
+	_config->reverb.level = 64.0f * 0.8f / 127.0f;
+	stm32synth_component_f32toq15fract(_config->reverb.level, &_config->reverb.scaleFract, &_config->reverb.shift);
+#endif /* STM32SYNTH_REVERB */
+
+	// Multi Channel
+	_config->ch0NoteMirror = 0;
 
 	return res;
 }

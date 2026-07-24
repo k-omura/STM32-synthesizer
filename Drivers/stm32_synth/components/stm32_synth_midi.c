@@ -246,10 +246,6 @@ stm32synth_res_t stm32synth_midi_inputmidiCC(stm32synth_config_t *_config, uint8
     case STM32SYNTH_MIDICC_PAN:
         _config->pan[_ch].r_level = (float32_t)_val / 64.0f;
         _config->pan[_ch].l_level = (float32_t)(128 - _val) / 64.0f;
-
-        stm32synth_component_f32toq15fract(_config->pan[_ch].l_level, &_config->pan[_ch].l_scaleFract, &_config->pan[_ch].l_shift);
-        stm32synth_component_f32toq15fract(_config->pan[_ch].r_level, &_config->pan[_ch].r_scaleFract, &_config->pan[_ch].r_shift);
-
         break;
 
     case STM32SYNTH_MIDICC_USER_ATTACKTIME: // Attack time
@@ -579,6 +575,7 @@ stm32synth_res_t stm32synth_midi_inputmidiCC(stm32synth_config_t *_config, uint8
 
     case STM32SYNTH_MIDICC_RESETALL: // default setting
         stm32synth_component_initChord();
+        stm32synth_component_initSynthConfig(_config);
         break;
 
     case STM32SYNTH_MIDICC_ALLSOUNDOFF: // all notes sound (immediately)

@@ -252,12 +252,6 @@ typedef struct
     float32_t r_level;
     float32_t l_level;
 
-    q15_t r_scaleFract;
-    int8_t r_shift;
-
-    q15_t l_scaleFract;
-    int8_t l_shift;
-
     // user add here start
     // user add here end
 } stm32synth_config_pan_t;
@@ -269,11 +263,11 @@ typedef struct
 {
     struct Buff
     {
-    #ifdef STM32SYNTH_I2S
+#ifdef STM32SYNTH_I2S
         q15_t (*back)[STM32SYNTH_NUM_SAMPLING];
-    #else
+#else
         q15_t *back;
-    #endif
+#endif
 #ifdef STM32SYNTH_REVERB
         q15_t (*reverb)[STM32SYNTH_HALF_NUM_SAMPLING];
 #endif /* STM32SYNTH_REVERB */
