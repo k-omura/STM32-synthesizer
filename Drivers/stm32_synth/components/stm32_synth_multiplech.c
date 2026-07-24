@@ -15,7 +15,7 @@ stm32synth_res_t stm32synth_multich_clear(stm32synth_config_t *_config)
     stm32synth_res_t res = STM32SYNTH_RES_OK;
 
     // Initialize default configuration
-    res = stm32synth_component_initSynthConfig(_config);
+    res = stm32synth_component_initAllSynthConfig(_config);
 
 #ifdef STM32SYNTH_FILTER
     // Master filter: override cutoff frequency for multich_clear

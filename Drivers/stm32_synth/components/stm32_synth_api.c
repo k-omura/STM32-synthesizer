@@ -56,7 +56,7 @@ stm32synth_res_t stm32synth_init(
 	if (res == STM32SYNTH_RES_NG)
 	{
 		// Initialize synthesizer configuration
-		res = stm32synth_component_initSynthConfig(&config);
+		res = stm32synth_component_initAllSynthConfig(&config);
 	}
 
 	// Chord

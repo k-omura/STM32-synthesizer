@@ -575,7 +575,7 @@ stm32synth_res_t stm32synth_midi_inputmidiCC(stm32synth_config_t *_config, uint8
 
     case STM32SYNTH_MIDICC_RESETALL: // default setting
         stm32synth_component_initChord();
-        stm32synth_component_initSynthConfig(_config);
+        stm32synth_component_initDrum(_config);
         break;
 
     case STM32SYNTH_MIDICC_ALLSOUNDOFF: // all notes sound (immediately)

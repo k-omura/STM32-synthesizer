@@ -89,7 +89,8 @@ stm32synth_res_t stm32synth_component_updateLSF(stm32synth_config_filter_t *_con
 stm32synth_res_t stm32synth_component_lfo(stm32synth_config_lfo_t *_configLfo);
 
 stm32synth_res_t stm32synth_component_f32toq15fract(float32_t _scale, q15_t *_scaleFract, int8_t *_shift);
-stm32synth_res_t stm32synth_component_initSynthConfig(stm32synth_config_t *_config);
+stm32synth_res_t stm32synth_component_initAllSynthConfig(stm32synth_config_t *_config);
+stm32synth_res_t stm32synth_component_initDrum(stm32synth_config_t *_config);
 
 #ifdef STM32SYNTH_SIN_CORDIC
 stm32synth_res_t stm32synth_component_initCORDIC(CORDIC_HandleTypeDef *_cordicHW);

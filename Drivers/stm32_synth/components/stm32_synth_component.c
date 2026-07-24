@@ -297,7 +297,7 @@ stm32synth_res_t stm32synth_component_f32toq15fract(float32_t _scale, q15_t *_sc
  *
  * @return stm32synth_res_t Result code (STM32SYNTH_RES_OK on success)
  */
-stm32synth_res_t stm32synth_component_initSynthConfig(stm32synth_config_t *_config)
+stm32synth_res_t stm32synth_component_initAllSynthConfig(stm32synth_config_t *_config)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
 
@@ -318,16 +318,6 @@ stm32synth_res_t stm32synth_component_initSynthConfig(stm32synth_config_t *_conf
 		_config->waveform[cc][STM32SYNTH_WAVEFORM_0].squ_level = 0.0f;
 		_config->waveform[cc][STM32SYNTH_WAVEFORM_0].squ_duty = 0.5f;
 	}
-	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].sin_level = 1.8f;
-	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].tri_level = 1.8f;
-	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].tri_peak = 0.35f;
-	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].squ_level = 2.0f;
-	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].squ_duty = 0.35f;
-	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].sin_level = 0.0f;
-	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].tri_level = 0.0f;
-	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].tri_peak = 0.35f;
-	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].squ_level = 1.8f;
-	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].squ_duty = 0.15f;
 
 	// ADSR
 	for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
@@ -337,10 +327,6 @@ stm32synth_res_t stm32synth_component_initSynthConfig(stm32synth_config_t *_conf
 		_config->adsr[cc].decay_ms = 150;
 		_config->adsr[cc].release_ms = 500;
 	}
-	_config->adsr[STM32SYNTH_MIDINN_DRUMCH].attack_level = 3.5f;
-	_config->adsr[STM32SYNTH_MIDINN_DRUMCH].attack_ms = 0;
-	_config->adsr[STM32SYNTH_MIDINN_DRUMCH].decay_ms = 0;
-	_config->adsr[STM32SYNTH_MIDINN_DRUMCH].release_ms = 300;
 
 	// Envelope
 	for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
@@ -348,10 +334,6 @@ stm32synth_res_t stm32synth_component_initSynthConfig(stm32synth_config_t *_conf
 		_config->envelope[cc].freq.finish_value = 64;
 		_config->envelope[cc].freq.time_ms = 0;
 	}
-	_config->envelope[STM32SYNTH_MIDINN_DRUMCH].freq.finish_value = -(3 << 8);
-	_config->envelope[STM32SYNTH_MIDINN_DRUMCH].freq.time_ms = 500;
-	_config->envelope[STM32SYNTH_MIDINN_DRUMCH].volume.finish_value = -0x40;
-	_config->envelope[STM32SYNTH_MIDINN_DRUMCH].volume.time_ms = 600;
 
 #ifdef STM32SYNTH_FILTER
 #ifdef STM32SYNTH_CHORDFILTER
@@ -387,14 +369,15 @@ stm32synth_res_t stm32synth_component_initSynthConfig(stm32synth_config_t *_conf
 	{
 		_config->phonic[cc] = STM32SYNTH_PHONIC_POLY_SUSTON;
 	}
-	_config->phonic[STM32SYNTH_MIDINN_DRUMCH] = STM32SYNTH_PHONIC_POLY_SUSTON;
 
 	// Distortion
 	for (uint8_t cc = 0; cc < STM32SYNTH_CHANNEL_NUMBER; cc++)
 	{
 		_config->distortion[cc] = 128;
 	}
-	_config->distortion[STM32SYNTH_MIDINN_DRUMCH] = 1;
+
+	// Drum channel has dedicated defaults.
+	stm32synth_component_initDrum(_config);
 
 	// Master LFO
 	_config->tre_master = initLfo;
@@ -434,6 +417,53 @@ stm32synth_res_t stm32synth_component_initSynthConfig(stm32synth_config_t *_conf
 
 	// Multi Channel
 	_config->ch0NoteMirror = 0;
+
+	return res;
+}
+
+/**
+ * @brief Initialize drum-channel specific defaults
+ *
+ * Applies dedicated defaults for the drum channel including waveform, phonic,
+ * ADSR, envelope, and distortion parameters.
+ *
+ * @param[out] _config Pointer to the synthesizer configuration structure
+ *
+ * @return stm32synth_res_t Result code (STM32SYNTH_RES_OK on success)
+ */
+stm32synth_res_t stm32synth_component_initDrum(stm32synth_config_t *_config)
+{
+	stm32synth_res_t res = STM32SYNTH_RES_OK;
+
+	// waveform
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].sin_level = 1.8f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].tri_level = 1.8f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].tri_peak = 0.35f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].squ_level = 2.0f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_0].squ_duty = 0.35f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].sin_level = 0.0f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].tri_level = 0.0f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].tri_peak = 0.35f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].squ_level = 1.8f;
+	_config->waveform[STM32SYNTH_MIDINN_DRUMCH][STM32SYNTH_WAVEFORM_1].squ_duty = 0.15f;
+
+	// Phonic
+	_config->phonic[STM32SYNTH_MIDINN_DRUMCH] = STM32SYNTH_PHONIC_POLY_SUSTON;
+
+	// ADSR
+	_config->adsr[STM32SYNTH_MIDINN_DRUMCH].attack_level = 3.5f;
+	_config->adsr[STM32SYNTH_MIDINN_DRUMCH].attack_ms = 0;
+	_config->adsr[STM32SYNTH_MIDINN_DRUMCH].decay_ms = 0;
+	_config->adsr[STM32SYNTH_MIDINN_DRUMCH].release_ms = 300;
+
+	// Envelope
+	_config->envelope[STM32SYNTH_MIDINN_DRUMCH].freq.finish_value = -(3 << 8);
+	_config->envelope[STM32SYNTH_MIDINN_DRUMCH].freq.time_ms = 500;
+	_config->envelope[STM32SYNTH_MIDINN_DRUMCH].volume.finish_value = -0x40;
+	_config->envelope[STM32SYNTH_MIDINN_DRUMCH].volume.time_ms = 600;
+
+	// Distortion
+	_config->distortion[STM32SYNTH_MIDINN_DRUMCH] = 1;
 
 	return res;
 }
