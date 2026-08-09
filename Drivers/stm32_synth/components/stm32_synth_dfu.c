@@ -7,6 +7,11 @@
 
 #include "components/stm32_synth_dfu.h"
 
+/**
+ * @brief Jump to the DFU (Device Firmware Upgrade) bootloader.
+ *
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the jump was successful, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32_synth_goto_dfu(void)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;

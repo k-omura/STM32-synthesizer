@@ -65,6 +65,12 @@ static const q15_t sine_lut[1024]; //<! sine look up table 1024 samples for one 
 
 static const float32_t exp_neg2_table[257]; //<! exp(-2 * x) table for x=0 to 1, 256 steps, used for ADSR curve
 
+/**
+ * @brief Test the chord component by generating a test chord and sending it to the synthesizer.
+ *
+ * @param _config
+ * @return stm32synth_res_t
+ */
 stm32synth_res_t stm32synth_component_testChord(stm32synth_config_t *_config)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -81,6 +87,11 @@ stm32synth_res_t stm32synth_component_testChord(stm32synth_config_t *_config)
     return res;
 }
 
+/**
+ * @brief Initialize the chord component by setting up the chord structures and drum configurations.
+ *
+ * @return stm32synth_res_t
+ */
 stm32synth_res_t stm32synth_component_initChord()
 {
     stm32synth_res_t res = STM32SYNTH_RES_NG;
@@ -116,6 +127,13 @@ stm32synth_res_t stm32synth_component_initChord()
     return res;
 }
 
+/**
+ * @brief Handle a note-on event for a chord. This function searches for an available chord slot and initializes it with the provided chord parameters.
+ *
+ * @param _config
+ * @param _inpurChord
+ * @return stm32synth_res_t
+ */
 stm32synth_res_t stm32synth_component_noteonChord(stm32synth_config_t *_config, stm32synth_chord_t *_inpurChord)
 {
     stm32synth_res_t res = STM32SYNTH_RES_NG;
@@ -199,6 +217,13 @@ stm32synth_res_t stm32synth_component_noteonChord(stm32synth_config_t *_config, 
     return res;
 }
 
+/**
+ * @brief Handle a note-off event for a chord. This function searches for the chord matching the provided chord parameters and sets its ADSR state to release.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @param _inpurChord Pointer to the chord structure containing the note-off information.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the note-off was successfully processed, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_component_noteoffChord(stm32synth_config_t *_config, stm32synth_chord_t *_inpurChord)
 {
     stm32synth_res_t res = STM32SYNTH_RES_NG;
@@ -219,6 +244,11 @@ stm32synth_res_t stm32synth_component_noteoffChord(stm32synth_config_t *_config,
     return res;
 }
 
+/**
+ * @brief Handle a note-off event for all chords. This function sets the ADSR state of all chords to release.
+ *
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the note-off was successfully processed for all chords, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_component_noteoffAll()
 {
     stm32synth_res_t res = STM32SYNTH_RES_NG;
@@ -234,6 +264,11 @@ stm32synth_res_t stm32synth_component_noteoffAll()
     return res;
 }
 
+/**
+ * @brief Disable all chords. This function sets all chord structures to a disabled state.
+ *
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if all chords were successfully disabled, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_component_disableChordAll()
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -260,6 +295,12 @@ stm32synth_res_t stm32synth_component_disableChordAll()
     return res;
 }
 
+/**
+ * @brief Disable a specific chord. This function sets the provided chord structure to a disabled state.
+ *
+ * @param _configChord Pointer to the chord structure to be disabled.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the chord was successfully disabled, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_component_disableChord(stm32synth_chord_t *_configChord)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -280,6 +321,13 @@ stm32synth_res_t stm32synth_component_disableChord(stm32synth_chord_t *_configCh
     return res;
 }
 
+/**
+ * @brief Update the chord buffer. This function processes all active chords and updates the audio buffer accordingly.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @param _half Indicates which half of the buffer to update (former or latter).
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the buffer was successfully updated, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, stm32synth_update_half_t _half)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -428,6 +476,12 @@ stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, s
 }
 
 #ifdef STM32SYNTH_SIN_CORDIC
+/**
+ * @brief Initialize the CORDIC hardware for sine calculations.
+ *
+ * @param _cordicHW Pointer to the CORDIC hardware handle.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the CORDIC was successfully initialized, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_component_initCORDIC(CORDIC_HandleTypeDef *_cordicHW)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -451,6 +505,17 @@ stm32synth_res_t stm32synth_component_initCORDIC(CORDIC_HandleTypeDef *_cordicHW
 
 //--------------------------------------------------------------------------------------------------------
 #ifdef STM32SYNTH_I2S
+/**
+ * @brief Update the chord. This function processes the specified chord and updates the audio buffer accordingly.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @param _configChord Pointer to the chord structure to be updated.
+ * @param _pbuffL Pointer to the left audio buffer (only used if STM32SYNTH_I2S is defined).
+ * @param _pbuffR Pointer to the right audio buffer (only used if STM32SYNTH_I2S is defined).
+ * @param _pbuff Pointer to the audio buffer (only used if STM32SYNTH_I2S is not defined).
+ * @param _half Indicates which half of the buffer to update (former or latter).
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the chord was successfully updated, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_pbuffL, q15_t *_pbuffR, stm32synth_update_half_t _half)
 #else
 stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_pbuff, stm32synth_update_half_t _half)
@@ -709,6 +774,14 @@ arm_add_q15(chordBuff, _pbuff, _pbuff, STM32SYNTH_HALF_NUM_SAMPLING);
     return res;
 }
 
+/**
+ * @brief Calculate the ADSR curve for a specific chord.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @param _configChord Pointer to the chord structure.
+ * @param _amp Pointer to the amplitude value to be updated.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the ADSR curve was successfully calculated, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_chord_adsrCurve(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, float32_t *_amp)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -797,6 +870,14 @@ stm32synth_res_t stm32synth_chord_adsrCurve(stm32synth_config_t *_config, stm32s
     return res;
 }
 
+/**
+ * @brief Calculate the envelope for a specific chord.
+ *
+ * @param _envelopec Pointer to the envelope configuration.
+ * @param _envelopeCount Pointer to the current envelope count.
+ * @param _outval Pointer to the output value to be updated.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the envelope was successfully calculated, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_chord_envelope(stm32synth_config_envelopec_t *_envelopec, uint32_t *_envelopeCount, int16_t *_outval)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -820,10 +901,19 @@ stm32synth_res_t stm32synth_chord_envelope(stm32synth_config_envelopec_t *_envel
     return res;
 }
 
+/**
+ * @brief Calculate the radian values for a specific chord.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @param _configChord Pointer to the chord structure.
+ * @param _nn Note number.
+ * @param _radBuff Pointer to the radian buffer to be updated.
+ * @param _wnum Waveform number.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the radian values were successfully calculated, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_chord_makerad(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, uint16_t _nn, q15_t *_radBuff, stm32synth_waveformnum_t _wnum)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
-
     float32_t freq = STM32SYNTH_TUNING * stm32synth_fast_exp2f(((float32_t)_nn / 3072.0f) - 5.75f);
 
     // float32_t delta_omega = freq * STM32SYNTH_DOUBLE_PI / (float32_t)STM32SYNTH_SAMPLE_FREQ;
@@ -845,6 +935,16 @@ stm32synth_res_t stm32synth_chord_makerad(stm32synth_config_t *_config, stm32syn
     return res;
 }
 
+/**
+ * @brief Add a sine waveform to the chord buffer.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @param _configChord Pointer to the chord structure.
+ * @param _chordBuff Pointer to the chord buffer to be updated.
+ * @param _radBuff Pointer to the radian buffer.
+ * @param _wnum Waveform number.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the sine waveform was successfully added, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_chord_addsine(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -900,6 +1000,16 @@ stm32synth_res_t stm32synth_chord_addsine(stm32synth_config_t *_config, stm32syn
     return res;
 }
 
+/**
+ * @brief Add a square waveform to the chord buffer.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @param _configChord Pointer to the chord structure.
+ * @param _chordBuff Pointer to the chord buffer to be updated.
+ * @param _radBuff Pointer to the radian buffer.
+ * @param _wnum Waveform number.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the square waveform was successfully added, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_chord_addsque(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -945,6 +1055,16 @@ stm32synth_res_t stm32synth_chord_addsque(stm32synth_config_t *_config, stm32syn
     return res;
 }
 
+/**
+ * @brief Add a triangle waveform to the chord buffer.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @param _configChord Pointer to the chord structure.
+ * @param _chordBuff Pointer to the chord buffer to be updated.
+ * @param _radBuff Pointer to the radian buffer.
+ * @param _wnum Waveform number.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the triangle waveform was successfully added, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_chord_addtrgl(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -996,6 +1116,14 @@ stm32synth_res_t stm32synth_chord_addtrgl(stm32synth_config_t *_config, stm32syn
     return res;
 }
 
+/**
+ * @brief Add noise to the chord buffer.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @param _amp Amplitude of the noise.
+ * @param _chordBuff Pointer to the chord buffer to be updated.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the noise was successfully added, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_chord_addnoise(stm32synth_config_t *_config, float32_t _amp, q15_t *_chordBuff)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -1066,6 +1194,13 @@ float32_t stm32synth_chord_exp_neg2_ratio(uint32_t _count, uint32_t _time_ms)
 }
 
 #ifdef STM32SYNTH_DRUM_TESTMODE
+/**
+ * @brief Change the drum configuration to test mode.
+ *
+ * @param _midiCC MIDI control change number.
+ * @param _val Value to set for the specified MIDI control change.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the configuration was successfully changed, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_drum_change_to_test(uint8_t _midiCC, uint8_t _val)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -1103,6 +1238,11 @@ stm32synth_res_t stm32synth_drum_change_to_test(uint8_t _midiCC, uint8_t _val)
     return res;
 }
 
+/**
+ * @brief Initialize the drum configuration for test mode.
+ *
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the initialization was successful, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_drum_init()
 {
     drumConfigList[0].waveformType = STM32SYNTH_CHORD_DRUM_TYPE_SIN | STM32SYNTH_CHORD_DRUM_TYPE_SQU | STM32SYNTH_CHORD_DRUM_TYPE_TRI | STM32SYNTH_CHORD_DRUM_TYPE_NOISE;

@@ -17,6 +17,13 @@ static stm32synth_midi_cablenumfilt_t cablenumfilt = STM32SYNTH_CABLENUMFILT_OFF
 
 stm32synth_res_t stm32synth_midi_inputmidiCC(stm32synth_config_t *_config, uint8_t _cablenum, uint8_t _ch, uint8_t _cc, uint8_t _val);
 
+/**
+ * @brief Process incoming MIDI message.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @param _midi Pointer to the MIDI message (4 bytes).
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the message was successfully processed, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_component_inputmidi(stm32synth_config_t *_config, uint8_t *_midi)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -128,6 +135,12 @@ stm32synth_res_t stm32synth_component_inputmidi(stm32synth_config_t *_config, ui
     return res;
 }
 
+/**
+ * @brief Write a MIDI message to the MIDI buffer.
+ *
+ * @param _midi Pointer to the MIDI message (4 bytes).
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the message was successfully written, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_component_midi_writebuff(uint8_t *_midi)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -142,6 +155,12 @@ stm32synth_res_t stm32synth_component_midi_writebuff(uint8_t *_midi)
     return res;
 }
 
+/**
+ * @brief Read a MIDI message from the MIDI buffer.
+ *
+ * @param _midi Pointer to the MIDI message (4 bytes) to be filled.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the message was successfully read, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_component_midi_readbuff(uint8_t *_midi)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -161,6 +180,12 @@ stm32synth_res_t stm32synth_component_midi_readbuff(uint8_t *_midi)
     return res;
 }
 
+/**
+ * @brief Process all MIDI messages in the MIDI buffer and update the synthesizer state accordingly.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if all messages were successfully processed, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_component_midi_buff2input(stm32synth_config_t *_config)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -179,6 +204,16 @@ stm32synth_res_t stm32synth_component_midi_buff2input(stm32synth_config_t *_conf
 }
 
 // Private
+/**
+ * @brief Handle a MIDI control change message.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @param _cablenum Cable number of the MIDI message.
+ * @param _ch MIDI channel.
+ * @param _cc MIDI control change number.
+ * @param _val Value of the MIDI control change.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the message was successfully processed, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_midi_inputmidiCC(stm32synth_config_t *_config, uint8_t _cablenum, uint8_t _ch, uint8_t _cc, uint8_t _val)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;

@@ -8,6 +8,12 @@
 #include "stm32_synth.h"
 #include "components/stm32_synth_component.h"
 
+/**
+ * @brief Process the LFO and update its value.
+ *
+ * @param _configLfo Pointer to the LFO configuration.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the LFO was successfully processed, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_component_lfo(stm32synth_config_lfo_t *_configLfo)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;

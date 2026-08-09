@@ -16,6 +16,14 @@
 static const uint8_t program_midi_msg[2][PROGRAM_NUM_OF_PARA];
 static const uint8_t program_midi_val[128][PROGRAM_NUM_OF_PARA];
 
+/**
+ * @brief Set the program for a specific channel.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @param _ch MIDI channel.
+ * @param _program Program to set.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the program was successfully set, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_program_set(stm32synth_config_t *_config, uint8_t _ch, stm32synth_program_list_t _program)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -41,6 +49,13 @@ stm32synth_res_t stm32synth_program_set(stm32synth_config_t *_config, uint8_t _c
 	return res;
 }
 
+/**
+ * @brief Clear the program for a specific channel.
+ *
+ * @param _config Pointer to the synthesizer configuration.
+ * @param _ch MIDI channel.
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the program was successfully cleared, STM32SYNTH_RES_NG otherwise.
+ */
 stm32synth_res_t stm32synth_program_clear(stm32synth_config_t *_config, uint8_t _ch)
 {
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
