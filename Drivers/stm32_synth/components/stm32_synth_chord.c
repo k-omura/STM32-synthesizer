@@ -65,6 +65,14 @@ static const q15_t sine_lut[1024]; //<! sine look up table 1024 samples for one 
 
 static const float32_t exp_neg2_table[257]; //<! exp(-2 * x) table for x=0 to 1, 256 steps, used for ADSR curve
 
+// Audio rendering is serialized by the DMA half/full callbacks, so these buffers can be shared.
+static q15_t chordScratch[STM32SYNTH_HALF_NUM_SAMPLING];
+static q15_t phaseScratch[STM32SYNTH_HALF_NUM_SAMPLING];
+static q15_t tempScratch[STM32SYNTH_HALF_NUM_SAMPLING];
+#ifdef STM32SYNTH_REVERB
+static uint8_t reverbReadIndex;
+#endif /* STM32SYNTH_REVERB */
+
 /**
  * @brief Test the chord component by generating a test chord and sending it to the synthesizer.
  *
@@ -107,6 +115,11 @@ stm32synth_res_t stm32synth_component_initChord()
         chords[cc].envelope.freq = 0;
 #ifdef STM32SYNTH_FILTER
         chords[cc].envelope.cutoff = 0;
+
+#ifdef STM32SYNTH_FILT_CMSIS
+        stm32synth_component_initFilter(&chords[cc].lpf);
+        stm32synth_component_initFilter(&chords[cc].hpf);
+#endif /* STM32SYNTH_FILT_CMSIS */
 
         if (chords[cc].channel != STM32SYNTH_MIDINN_DRUMCH)
         {
@@ -341,7 +354,7 @@ stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, s
     static arm_biquad_casd_df1_inst_q15 filterInstanceR;
     static q15_t pStateR[4];
 
-    q15_t chordsBuffTemp[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
+    q15_t *chordsBuffTemp = tempScratch;
     q15_t *mbuff_pL = (_half == STM32SYNTH_UPDATE_LATTER) ? (&_config->buff.back[0][STM32SYNTH_HALF_NUM_SAMPLING]) : (&_config->buff.back[0][0]);
     q15_t *mbuff_pR = (_half == STM32SYNTH_UPDATE_LATTER) ? (&_config->buff.back[1][STM32SYNTH_HALF_NUM_SAMPLING]) : (&_config->buff.back[1][0]);
     arm_fill_q15(0, mbuff_pL, STM32SYNTH_HALF_NUM_SAMPLING);
@@ -438,33 +451,30 @@ stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, s
 
     // Reverb
 #ifdef STM32SYNTH_REVERB
-#ifdef STM32SYNTH_I2S
+    q15_t *reverbBuff = _config->buff.reverb[reverbReadIndex];
     if (_config->reverb.level > 0)
     {
+#ifdef STM32SYNTH_I2S
         // mean of left and right channel
         arm_add_q15(mbuff_pL, mbuff_pR, chordsBuffTemp, STM32SYNTH_HALF_NUM_SAMPLING);
         arm_shift_q15(chordsBuffTemp, -1, chordsBuffTemp, STM32SYNTH_HALF_NUM_SAMPLING);
 
         // add reverb to left and right channel
-        arm_add_q15(mbuff_pL, _config->buff.reverb[0], mbuff_pL, STM32SYNTH_HALF_NUM_SAMPLING);
-        arm_add_q15(mbuff_pR, _config->buff.reverb[0], mbuff_pR, STM32SYNTH_HALF_NUM_SAMPLING);
+        arm_add_q15(mbuff_pL, reverbBuff, mbuff_pL, STM32SYNTH_HALF_NUM_SAMPLING);
+        arm_add_q15(mbuff_pR, reverbBuff, mbuff_pR, STM32SYNTH_HALF_NUM_SAMPLING);
 
         // update reverb buffer
-        arm_add_q15(chordsBuffTemp, _config->buff.reverb[0], chordsBuffTemp, STM32SYNTH_HALF_NUM_SAMPLING);
-        arm_copy_q15(_config->buff.reverb[1], _config->buff.reverb[0], ((STM32SYNTH_REVERB_NUM - 1) * STM32SYNTH_HALF_NUM_SAMPLING));
-        arm_scale_q15(chordsBuffTemp, _config->reverb.scaleFract, _config->reverb.shift, _config->buff.reverb[(STM32SYNTH_REVERB_NUM - 1)], STM32SYNTH_HALF_NUM_SAMPLING);
-    }
+        arm_add_q15(chordsBuffTemp, reverbBuff, chordsBuffTemp, STM32SYNTH_HALF_NUM_SAMPLING);
+        arm_scale_q15(chordsBuffTemp, _config->reverb.scaleFract, _config->reverb.shift, reverbBuff, STM32SYNTH_HALF_NUM_SAMPLING);
 #else
-    if (_config->reverb.level > 0)
-    {
         // add reverb to buffer
-        arm_add_q15(mbuff_p, _config->buff.reverb[0], mbuff_p, STM32SYNTH_HALF_NUM_SAMPLING);
+        arm_add_q15(mbuff_p, reverbBuff, mbuff_p, STM32SYNTH_HALF_NUM_SAMPLING);
         // update reverb buffer
-        arm_copy_q15(_config->buff.reverb[1], _config->buff.reverb[0], ((STM32SYNTH_REVERB_NUM - 1) * STM32SYNTH_HALF_NUM_SAMPLING));
-        // scale reverb buffer
-        arm_scale_q15(mbuff_p, _config->reverb.scaleFract, _config->reverb.shift, _config->buff.reverb[(STM32SYNTH_REVERB_NUM - 1)], STM32SYNTH_HALF_NUM_SAMPLING);
-    }
+        arm_scale_q15(mbuff_p, _config->reverb.scaleFract, _config->reverb.shift, reverbBuff, STM32SYNTH_HALF_NUM_SAMPLING);
 #endif /* STM32SYNTH_I2S */
+        // update reverb read index
+        reverbReadIndex = (reverbReadIndex < (STM32SYNTH_REVERB_NUM - 1)) ? (reverbReadIndex + 1) : 0;
+    }
 #endif /* STM32SYNTH_REVERB */
 
 #ifndef STM32SYNTH_I2S
@@ -529,8 +539,9 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
         return res;
     }
 
-    q15_t chordBuff[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
-    q15_t radBuff[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
+    q15_t *chordBuff = chordScratch;
+    q15_t *radBuff = phaseScratch;
+    arm_fill_q15(0, chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
     float32_t amp = _config->volume[_configChord->channel] * _configChord->velocity;
     int8_t shift;
     q15_t scaleFract;
@@ -754,7 +765,7 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
 
     // Add to master array
 #ifdef STM32SYNTH_I2S
-    q15_t chordBuffTemp[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
+    q15_t *chordBuffTemp = tempScratch;
 
     // Amp and Pan
     stm32synth_component_f32toq15fract(amp * _config->pan[_configChord->channel].l_level, &scaleFract, &shift);
@@ -955,7 +966,7 @@ stm32synth_res_t stm32synth_chord_addsine(stm32synth_config_t *_config, stm32syn
         return res;
     }
 
-    q15_t buff[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
+    q15_t *buff = tempScratch;
     int8_t shift;
     q15_t scaleFract;
     stm32synth_component_f32toq15fract(_config->waveform[_configChord->channel][_wnum].sin_level / (float32_t)(1 << (STM32SYNTH_CHORD_BASE_AMP_SHIFT - 1)), &scaleFract, &shift);
@@ -1128,7 +1139,7 @@ stm32synth_res_t stm32synth_chord_addnoise(stm32synth_config_t *_config, float32
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
 
-    q15_t buff[STM32SYNTH_HALF_NUM_SAMPLING] = {0};
+    q15_t *buff = tempScratch;
 
     // scale
     float32_t scale = _amp * 0.007f;
@@ -1182,14 +1193,15 @@ float32_t stm32synth_chord_exp_neg2_ratio(uint32_t _count, uint32_t _time_ms)
         return exp_neg2_table[256];
     }
 
-    uint32_t idx = (uint32_t)((uint64_t)_count * 256u / _time_ms);
+    uint32_t position_q8 = (_count << 16) / _time_ms;
+    uint32_t idx = position_q8 >> 8;
     if (idx >= 256u)
     {
         return exp_neg2_table[256];
     }
 
     uint32_t next = idx + 1u;
-    float32_t ratio = ((float32_t)_count * 256.0f / (float32_t)_time_ms) - (float32_t)idx;
+    float32_t ratio = (float32_t)(position_q8 & 0xFFu) * 0.00390625f; // 0.00390625f = 1.0f / 256.0f
     return exp_neg2_table[idx] + (exp_neg2_table[next] - exp_neg2_table[idx]) * ratio;
 }
 

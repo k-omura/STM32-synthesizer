@@ -78,6 +78,23 @@ stm32synth_res_t stm32synth_component_updateDacbuff(stm32synth_config_t *_config
 #ifdef STM32SYNTH_FILT_CMSIS
 
 /**
+ * @brief Initialize a CMSIS-DSP biquad filter instance.
+ *
+ * @param[in,out] _configFilter Pointer to the filter configuration structure
+ * @return stm32synth_res_t Result code indicating success or failure
+ */
+stm32synth_res_t stm32synth_component_initFilter(stm32synth_config_filter_t *_configFilter)
+{
+	_configFilter->instance.numStages = 1;
+	_configFilter->instance.pCoeffs = _configFilter->pCoeffs;
+	_configFilter->instance.pState = _configFilter->pState;
+	_configFilter->instance.postShift = STM32SYNTH_FILT_SHIFT;
+	arm_fill_q15(0, _configFilter->pState, 4);
+
+	return STM32SYNTH_RES_OK;
+}
+
+/**
  * @brief Update low-pass filter (LPF) coefficients based on cutoff frequency
  *
  * Calculates and updates the biquad filter coefficients for a low-pass filter.
@@ -116,11 +133,6 @@ stm32synth_res_t stm32synth_component_updateLPF(stm32synth_config_filter_t *_con
 	_configFilter->pCoeffs[4] = -(int16_t)(((-2.0f * cos_omega_c) / a0) * (float32_t)(STM32SYNTH_Q15_MAX >> STM32SYNTH_FILT_SHIFT)); // a1
 	_configFilter->pCoeffs[5] = -(int16_t)(((1.0f - alfa) / a0) * (float32_t)(STM32SYNTH_Q15_MAX >> STM32SYNTH_FILT_SHIFT));		 // a2
 
-	// Keep pState continuous across blocks; only refresh coeff/pointer metadata.
-	_configFilter->instance.numStages = 1;
-	_configFilter->instance.pCoeffs = _configFilter->pCoeffs;
-	_configFilter->instance.pState = _configFilter->pState;
-	_configFilter->instance.postShift = STM32SYNTH_FILT_SHIFT;
 	_configFilter->state = STM32SYNTH_PARA_NOCHANGE;
 
 	return res;
@@ -165,11 +177,6 @@ stm32synth_res_t stm32synth_component_updateHPF(stm32synth_config_filter_t *_con
 	_configFilter->pCoeffs[4] = -(int16_t)(((-2.0f * cos_omega_c) / a0) * (float32_t)(STM32SYNTH_Q15_MAX >> STM32SYNTH_FILT_SHIFT)); // a1
 	_configFilter->pCoeffs[5] = -(int16_t)(((1.0f - alfa) / a0) * (float32_t)(STM32SYNTH_Q15_MAX >> STM32SYNTH_FILT_SHIFT));		 // a2
 
-	// Keep pState continuous across blocks; only refresh coeff/pointer metadata.
-	_configFilter->instance.numStages = 1;
-	_configFilter->instance.pCoeffs = _configFilter->pCoeffs;
-	_configFilter->instance.pState = _configFilter->pState;
-	_configFilter->instance.postShift = STM32SYNTH_FILT_SHIFT;
 	_configFilter->state = STM32SYNTH_PARA_NOCHANGE;
 
 	return res;
@@ -225,11 +232,6 @@ stm32synth_res_t stm32synth_component_updateLSF(stm32synth_config_filter_t *_con
 	_configFilter->pCoeffs[4] = (int16_t)(((2.0f * (shelfAm1 + shelfAp1Cos)) / a0) * (float32_t)(STM32SYNTH_Q15_MAX >> STM32SYNTH_FILT_SHIFT));			 // a1
 	_configFilter->pCoeffs[5] = -(int16_t)(((shelfAp1 + shelfAm1Cos - beta) / a0) * (float32_t)(STM32SYNTH_Q15_MAX >> STM32SYNTH_FILT_SHIFT));			 // a2
 
-	// Keep pState continuous across blocks; only refresh coeff/pointer metadata.
-	_configFilter->instance.numStages = 1;
-	_configFilter->instance.pCoeffs = _configFilter->pCoeffs;
-	_configFilter->instance.pState = _configFilter->pState;
-	_configFilter->instance.postShift = STM32SYNTH_FILT_SHIFT;
 	_configFilter->state = STM32SYNTH_PARA_NOCHANGE;
 
 	return res;

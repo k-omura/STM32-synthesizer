@@ -82,6 +82,9 @@ stm32synth_res_t stm32synth_component_noteoffAll();
 stm32synth_res_t stm32synth_component_disableChordAll();
 
 stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, stm32synth_update_half_t _half);
+#ifdef STM32SYNTH_FILT_CMSIS
+stm32synth_res_t stm32synth_component_initFilter(stm32synth_config_filter_t *_configFilter);
+#endif /* STM32SYNTH_FILT_CMSIS */
 stm32synth_res_t stm32synth_component_updateLPF(stm32synth_config_filter_t *_configFilter, int32_t _wow_val);
 stm32synth_res_t stm32synth_component_updateHPF(stm32synth_config_filter_t *_configFilter, int32_t _wow_val);
 stm32synth_res_t stm32synth_component_updateLSF(stm32synth_config_filter_t *_configFilter, int32_t _wow_val);

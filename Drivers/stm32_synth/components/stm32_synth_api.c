@@ -59,6 +59,10 @@ stm32synth_res_t stm32synth_init(
 		res = stm32synth_component_initAllSynthConfig(&config);
 	}
 
+#if defined(STM32SYNTH_FILTER) && defined(STM32SYNTH_FILT_CMSIS)
+	stm32synth_component_initFilter(&config.filter_master);
+#endif /* STM32SYNTH_FILTER && STM32SYNTH_FILT_CMSIS */
+
 	// Chord
 	stm32synth_component_initChord();
 	// stm32synth_component_testChord();
@@ -136,6 +140,10 @@ stm32synth_res_t stm32synth_setConfig(stm32synth_config_t *_configBuff)
 	stm32synth_res_t res = STM32SYNTH_RES_OK;
 
 	memcpy(&config, _configBuff, sizeof(stm32synth_config_t));
+
+#if defined(STM32SYNTH_FILTER) && defined(STM32SYNTH_FILT_CMSIS)
+	stm32synth_component_initFilter(&config.filter_master);
+#endif /* STM32SYNTH_FILTER && STM32SYNTH_FILT_CMSIS */
 
 #ifdef STM32SYNTH_FILTER
 	if (config.filter_master.state == STM32SYNTH_PARA_CHANGE)
