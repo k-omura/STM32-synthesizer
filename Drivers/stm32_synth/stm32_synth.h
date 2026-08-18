@@ -30,7 +30,7 @@
 #define STM32SYNTH_MAX_FREQ (STM32SYNTH_SAMPLE_FREQ >> 1)                                     //!< maximum frequency (Hz)
 #define STM32SYNTH_MAX_FREQ_NOTE (34579)                                                      //!< maximum frequency note
 #define STM32SYNTH_MIN_FREQ (20)                                                              //!< minimum frequency (Hz)
-#define STM32SYNTH_MAX_CHORD (32)                                                             //!< maximum number of chords
+#define STM32SYNTH_MAX_CHORD (36)                                                             //!< maximum number of chords
 #define STM32SYNTH_AUDIO_STEREO_NUM (2)                                                       //!< number of audio channels
 #define STM32SYNTH_CHANNEL_NUMBER (16)                                                        //!< Number of MIDI channels
 #define STM32SYNTH_WAVEFORM_NUM_PERCHORD (2)                                                  //!< Number of waveforms per chord

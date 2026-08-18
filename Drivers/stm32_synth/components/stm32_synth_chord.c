@@ -37,10 +37,7 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
 stm32synth_res_t stm32synth_chord_adsrCurve(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, float32_t *_amp);
 stm32synth_res_t stm32synth_chord_envelope(stm32synth_config_envelopec_t *_envelopec, uint32_t *_envelopeCount, int16_t *_outval);
 
-stm32synth_res_t stm32synth_chord_makerad(stm32synth_chord_t *_configChord, uint16_t _nn, q15_t *_radBuff, stm32synth_waveformnum_t _wnum);
-stm32synth_res_t stm32synth_chord_addsine(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum);
-stm32synth_res_t stm32synth_chord_addsque(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum);
-stm32synth_res_t stm32synth_chord_addtrgl(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum);
+stm32synth_res_t stm32synth_chord_renderwave(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, uint16_t _nn, stm32synth_waveformnum_t _wnum, uint8_t _waveformType);
 stm32synth_res_t stm32synth_chord_addnoise(stm32synth_config_t *_config, float32_t _amp, q15_t *_chordBuff);
 float32_t stm32synth_chord_exp_neg2_ratio(uint32_t _count, uint32_t _time_ms);
 
@@ -65,7 +62,6 @@ static const float32_t exp_neg2_table[257]; //!< exp(-2 * x) table for x=0 to 1,
 
 // Audio rendering is serialized by the DMA half/full callbacks, so these buffers can be shared.
 static q15_t chordScratch[STM32SYNTH_HALF_NUM_SAMPLING];
-static q15_t phaseScratch[STM32SYNTH_HALF_NUM_SAMPLING];
 static q15_t tempScratch[STM32SYNTH_HALF_NUM_SAMPLING];
 #ifdef STM32SYNTH_REVERB
 static uint8_t reverbReadIndex;
@@ -535,7 +531,6 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
     }
 
     q15_t *chordBuff = chordScratch;
-    q15_t *radBuff = phaseScratch;
     arm_fill_q15(0, chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
     float32_t amp = _config->volume[_configChord->channel] * _configChord->velocity;
     int8_t shift;
@@ -628,20 +623,7 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
                     nn = (nn > STM32SYNTH_MAX_FREQ_NOTE) ? STM32SYNTH_MAX_FREQ_NOTE : nn;
                 }
 
-                stm32synth_chord_makerad(_configChord, nn, radBuff, ww);
-
-                if (drumConfigList[drumConfigIndex].waveformType & STM32SYNTH_CHORD_DRUM_TYPE_SIN)
-                {
-                    stm32synth_chord_addsine(_config, _configChord, chordBuff, radBuff, ww);
-                }
-                if (drumConfigList[drumConfigIndex].waveformType & STM32SYNTH_CHORD_DRUM_TYPE_TRI)
-                {
-                    stm32synth_chord_addtrgl(_config, _configChord, chordBuff, radBuff, ww);
-                }
-                if (drumConfigList[drumConfigIndex].waveformType & STM32SYNTH_CHORD_DRUM_TYPE_SQU)
-                {
-                    stm32synth_chord_addsque(_config, _configChord, chordBuff, radBuff, ww);
-                }
+                stm32synth_chord_renderwave(_config, _configChord, chordBuff, nn, ww, drumConfigList[drumConfigIndex].waveformType);
             }
         }
 
@@ -692,11 +674,7 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
                 continue;
             }
 
-            stm32synth_chord_makerad(_configChord, nn[ww], radBuff, ww);
-
-            stm32synth_chord_addsine(_config, _configChord, chordBuff, radBuff, ww);
-            stm32synth_chord_addsque(_config, _configChord, chordBuff, radBuff, ww);
-            stm32synth_chord_addtrgl(_config, _configChord, chordBuff, radBuff, ww);
+            stm32synth_chord_renderwave(_config, _configChord, chordBuff, nn[ww], ww, STM32SYNTH_CHORD_DRUM_TYPE_SIN | STM32SYNTH_CHORD_DRUM_TYPE_SQU | STM32SYNTH_CHORD_DRUM_TYPE_TRI);
         }
 
 #ifdef STM32SYNTH_FILTER
@@ -908,208 +886,129 @@ stm32synth_res_t stm32synth_chord_envelope(stm32synth_config_envelopec_t *_envel
 }
 
 /**
- * @brief Calculate the radian values for a specific chord.
- *
- * @param _configChord Pointer to the chord structure.
- * @param _nn Note number.
- * @param _radBuff Pointer to the radian buffer to be updated.
- * @param _wnum Waveform number.
- * @return stm32synth_res_t STM32SYNTH_RES_OK if the radian values were successfully calculated, STM32SYNTH_RES_NG otherwise.
- */
-stm32synth_res_t stm32synth_chord_makerad(stm32synth_chord_t *_configChord, uint16_t _nn, q15_t *_radBuff, stm32synth_waveformnum_t _wnum)
-{
-    stm32synth_res_t res = STM32SYNTH_RES_OK;
-    float32_t freq = STM32SYNTH_TUNING * stm32synth_fast_exp2f(((float32_t)_nn / 3072.0f) - 5.75f);
-
-    // float32_t delta_omega = freq * STM32SYNTH_DOUBLE_PI / (float32_t)STM32SYNTH_SAMPLE_FREQ;
-    q15_t delta_omega_q15 = (q15_t)(freq * (STM32SYNTH_Q15_MAX << 1) / STM32SYNTH_SAMPLE_FREQ);
-    q15_t temp = _configChord->rad[_wnum]; // init;
-
-    q15_t *radBuff_p = _radBuff;
-    for (uint32_t t = 0; t < STM32SYNTH_HALF_NUM_SAMPLING_BY_4; t++)
-    {
-        *radBuff_p = temp;
-        temp += delta_omega_q15;
-        *(radBuff_p + 1) = temp;
-        temp += delta_omega_q15;
-        *(radBuff_p + 2) = temp;
-        temp += delta_omega_q15;
-        *(radBuff_p + 3) = temp;
-        temp += delta_omega_q15;
-
-        radBuff_p += 4;
-    }
-    _configChord->rad[_wnum] = temp;
-
-    return res;
-}
-
-/**
- * @brief Add a sine waveform to the chord buffer.
+ * @brief Render a waveform for a specific chord.
  *
  * @param _config Pointer to the synthesizer configuration.
  * @param _configChord Pointer to the chord structure.
- * @param _chordBuff Pointer to the chord buffer to be updated.
- * @param _radBuff Pointer to the radian buffer.
- * @param _wnum Waveform number.
- * @return stm32synth_res_t STM32SYNTH_RES_OK if the sine waveform was successfully added, STM32SYNTH_RES_NG otherwise.
+ * @param _chordBuff Pointer to the buffer where the rendered waveform will be stored.
+ * @param _nn The note number for the waveform.
+ * @param _wnum The waveform number (index) to render.
+ * @param _waveformType The type of waveform to render (sine, square, triangle).
+ * @return stm32synth_res_t STM32SYNTH_RES_OK if the waveform was successfully rendered, STM32SYNTH_RES_NG otherwise.
  */
-stm32synth_res_t stm32synth_chord_addsine(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum)
+stm32synth_res_t stm32synth_chord_renderwave(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, uint16_t _nn, stm32synth_waveformnum_t _wnum, uint8_t _waveformType)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
+    stm32synth_config_waveform_t *waveform = &_config->waveform[_configChord->channel][_wnum];
+    float32_t freq = STM32SYNTH_TUNING * stm32synth_fast_exp2f(((float32_t)_nn / 3072.0f) - 5.75f);
+    uint16_t phase = (uint16_t)_configChord->rad[_wnum];
+    uint16_t deltaPhase = (uint16_t)(q15_t)(freq * (STM32SYNTH_Q15_MAX << 1) / STM32SYNTH_SAMPLE_FREQ);
 
-    if (_config->waveform[_configChord->channel][_wnum].sin_level < 0.05f)
+    // init sine waveform parameters
+    uint8_t sineEnabled = ((_waveformType & STM32SYNTH_CHORD_DRUM_TYPE_SIN) != 0U) && (waveform->sin_level >= 0.05f);
+    q15_t sineScaleFract = 0;
+    int8_t sineShift = 0;
+
+    // init square waveform parameters
+    uint8_t squareEnabled = ((_waveformType & STM32SYNTH_CHORD_DRUM_TYPE_SQU) != 0U) && (waveform->squ_level >= 0.05f) && (waveform->squ_duty > 0.0f) && (waveform->squ_duty < 1.0f);
+    q15_t squareLevel = 0;
+    q15_t squareDutyPhase = 0;
+
+    // init triangle waveform parameters
+    uint8_t triangleEnabled = ((_waveformType & STM32SYNTH_CHORD_DRUM_TYPE_TRI) != 0U) && (waveform->tri_level >= 0.05f) && (waveform->tri_peak >= 0.0f) && (waveform->tri_peak <= 1.0f);
+    int32_t trianglePeakPoint = 0;
+    int32_t trianglePeakPhase = 0;
+    int32_t triangleUpperOffset = 0;
+    int32_t triangleUpperSlopeQ15 = 0;
+    int32_t triangleLowerSlopeQ15 = 0;
+
+    // prepare for sine waveform
+    if (sineEnabled != 0U)
     {
-        res = STM32SYNTH_RES_NG;
-        return res;
-    }
-
-    q15_t *buff = tempScratch;
-    int8_t shift;
-    q15_t scaleFract;
-    stm32synth_component_f32toq15fract(_config->waveform[_configChord->channel][_wnum].sin_level / (float32_t)(1 << (STM32SYNTH_CHORD_BASE_AMP_SHIFT - 1)), &scaleFract, &shift);
+        stm32synth_component_f32toq15fract(waveform->sin_level / (float32_t)(1 << (STM32SYNTH_CHORD_BASE_AMP_SHIFT - 1)), &sineScaleFract, &sineShift);
 
 #ifdef STM32SYNTH_SIN_CORDIC
-    // CORDIC Baremetal Zero-Overhead mode
-    q15_t *p_tmp_in_buff = (q15_t *)_radBuff;
-    q15_t *p_tmp_out_buff = (q15_t *)buff;
-
-    // Write of input data in Write Data register, and increment input buffer pointer
-    cordicHW->Instance->WDATA = (int32_t)((*p_tmp_in_buff++) << 16);
-    for (uint16_t index = (STM32SYNTH_HALF_NUM_SAMPLING - 1); index > 0; index--)
-    {
-        cordicHW->Instance->WDATA = (int32_t)((*p_tmp_in_buff++) << 16);
-        (*p_tmp_out_buff++) = (q15_t)(cordicHW->Instance->RDATA & 0x0000FFFF);
-    }
-    (*p_tmp_out_buff) = (q15_t)(cordicHW->Instance->RDATA & 0x0000FFFF);
-#else
-    q15_t *buff_p = buff;
-    q15_t *radBuff_p = _radBuff;
-
-    for (uint16_t t = 0; t < STM32SYNTH_HALF_NUM_SAMPLING; t++)
-    {
-        uint16_t phase = (uint16_t)(*radBuff_p++);
-        uint16_t idx = (uint16_t)(phase >> 6);     // 10-bit index into 1024-entry table
-        uint16_t frac = (uint16_t)(phase & 0x3Fu); // 6-bit fractional position
-
-        int32_t v0 = (int32_t)sine_lut[idx];
-        int32_t v1 = (int32_t)sine_lut[(idx + 1u) & 0x03FFu];
-        int32_t diff = v1 - v0;
-
-        // linear interpolation: v = v0 + diff * frac / 64
-        int32_t interp = v0 + ((diff * (int32_t)frac) >> 6);
-
-        *buff_p++ = (q15_t)interp;
-    }
+        cordicHW->Instance->WDATA = (int32_t)((q15_t)phase << 16);
 #endif /* STM32SYNTH_SIN_CORDIC */
-
-    arm_scale_q15(buff, scaleFract, shift, buff, STM32SYNTH_HALF_NUM_SAMPLING);
-    arm_add_q15(_chordBuff, buff, _chordBuff, STM32SYNTH_HALF_NUM_SAMPLING);
-
-    return res;
-}
-
-/**
- * @brief Add a square waveform to the chord buffer.
- *
- * @param _config Pointer to the synthesizer configuration.
- * @param _configChord Pointer to the chord structure.
- * @param _chordBuff Pointer to the chord buffer to be updated.
- * @param _radBuff Pointer to the radian buffer.
- * @param _wnum Waveform number.
- * @return stm32synth_res_t STM32SYNTH_RES_OK if the square waveform was successfully added, STM32SYNTH_RES_NG otherwise.
- */
-stm32synth_res_t stm32synth_chord_addsque(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum)
-{
-    stm32synth_res_t res = STM32SYNTH_RES_OK;
-
-    if (_config->waveform[_configChord->channel][_wnum].squ_level < 0.05f)
-    {
-        res = STM32SYNTH_RES_NG;
-        return res;
     }
-
-    if ((_config->waveform[_configChord->channel][_wnum].squ_duty <= 0.0f) || (_config->waveform[_configChord->channel][_wnum].squ_duty >= 1.0f))
+    // prepare for square waveform
+    if (squareEnabled != 0U)
     {
-        res = STM32SYNTH_RES_NG;
-        return res;
+        int32_t dutyHighRad = (int32_t)(waveform->squ_duty * STM32SYNTH_Q15_MAX);
+        squareLevel = (q15_t)((float32_t)STM32SYNTH_CHORD_BASE_AMP * waveform->squ_level);
+        squareDutyPhase = (q15_t)(2 * dutyHighRad - STM32SYNTH_Q15_MAX);
     }
-
-    float32_t squ_duty, squ_level;
-    squ_duty = _config->waveform[_configChord->channel][_wnum].squ_duty;
-    squ_level = _config->waveform[_configChord->channel][_wnum].squ_level;
-
-    q15_t level = (int16_t)((float32_t)STM32SYNTH_CHORD_BASE_AMP * squ_level);
-
-    int32_t dutyHighRad_32 = (int32_t)(squ_duty * STM32SYNTH_Q15_MAX);
-    q15_t dutyHighRad = (int16_t)(2 * dutyHighRad_32 - STM32SYNTH_Q15_MAX);
-
-    for (uint16_t t = 0; t < STM32SYNTH_HALF_NUM_SAMPLING; t++)
+    // prepare for triangle waveform
+    if (triangleEnabled != 0U)
     {
-        _chordBuff[t] += (_radBuff[t] < dutyHighRad) ? level : -level;
-    }
-
-    return res;
-}
-
-/**
- * @brief Add a triangle waveform to the chord buffer.
- *
- * @param _config Pointer to the synthesizer configuration.
- * @param _configChord Pointer to the chord structure.
- * @param _chordBuff Pointer to the chord buffer to be updated.
- * @param _radBuff Pointer to the radian buffer.
- * @param _wnum Waveform number.
- * @return stm32synth_res_t STM32SYNTH_RES_OK if the triangle waveform was successfully added, STM32SYNTH_RES_NG otherwise.
- */
-stm32synth_res_t stm32synth_chord_addtrgl(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum)
-{
-    stm32synth_res_t res = STM32SYNTH_RES_OK;
-
-    if ((_config->waveform[_configChord->channel][_wnum].tri_level < 0.05f) || (_config->waveform[_configChord->channel][_wnum].tri_peak < 0.0f) || (_config->waveform[_configChord->channel][_wnum].tri_peak > 1.0f))
-    {
-        res = STM32SYNTH_RES_NG;
-        return res;
-    }
-
-    float32_t tri_level = _config->waveform[_configChord->channel][_wnum].tri_level;
-    float32_t peakPoint_f32 = _config->waveform[_configChord->channel][_wnum].tri_peak * (float32_t)STM32SYNTH_Q15_MAX;
-    int32_t peakPoint = (int32_t)peakPoint_f32;
-    int32_t peakPhase = (peakPoint << 1) - STM32SYNTH_Q15_MAX;
-    int32_t upperOffset = STM32SYNTH_Q15_MAX - peakPoint;
-    float32_t amplitude = tri_level * (float32_t)STM32SYNTH_CHORD_BASE_AMP;
-    int32_t upperSlopeQ15 = 0;
-    int32_t lowerSlopeQ15 = 0;
-
-    if (peakPoint == 0) // in case of peakPoint == 0, the triangle wave is a downward slope from +amplitude to -amplitude
-    {
-        peakPhase = INT32_MIN;
-        lowerSlopeQ15 = (int32_t)(amplitude * 32768.0f / (float32_t)STM32SYNTH_Q15_MAX);
-    }
-    else if (upperOffset == 0) // in case of upperOffset == 0, the triangle wave is an upward slope from -amplitude to +amplitude
-    {
-        peakPhase = INT32_MAX;
-        upperSlopeQ15 = (int32_t)(amplitude * 32768.0f / (float32_t)STM32SYNTH_Q15_MAX);
-    }
-    else
-    {
-        upperSlopeQ15 = (int32_t)(amplitude * 32768.0f / (float32_t)peakPoint);
-        lowerSlopeQ15 = (int32_t)(amplitude * 32768.0f / (float32_t)upperOffset);
-    }
-
-    for (uint16_t t = 0; t < STM32SYNTH_HALF_NUM_SAMPLING; t++)
-    {
-        int32_t phase = _radBuff[t];
-
-        if (phase < peakPhase)
+        float32_t peakPoint = waveform->tri_peak * (float32_t)STM32SYNTH_Q15_MAX;
+        float32_t amplitude = waveform->tri_level * (float32_t)STM32SYNTH_CHORD_BASE_AMP;
+        trianglePeakPoint = (int32_t)peakPoint;
+        trianglePeakPhase = (trianglePeakPoint << 1) - STM32SYNTH_Q15_MAX;
+        triangleUpperOffset = STM32SYNTH_Q15_MAX - trianglePeakPoint;
+        if (trianglePeakPoint == 0)
         {
-            _chordBuff[t] += (q15_t)((upperSlopeQ15 * (phase + upperOffset)) >> 15);
+            trianglePeakPhase = INT32_MIN;
+            triangleLowerSlopeQ15 = (int32_t)(amplitude * 32768.0f / (float32_t)STM32SYNTH_Q15_MAX);
+        }
+        else if (triangleUpperOffset == 0)
+        {
+            trianglePeakPhase = INT32_MAX;
+            triangleUpperSlopeQ15 = (int32_t)(amplitude * 32768.0f / (float32_t)STM32SYNTH_Q15_MAX);
         }
         else
         {
-            _chordBuff[t] += (q15_t)((lowerSlopeQ15 * (peakPoint - phase)) >> 15);
+            triangleUpperSlopeQ15 = (int32_t)(amplitude * 32768.0f / (float32_t)trianglePeakPoint);
+            triangleLowerSlopeQ15 = (int32_t)(amplitude * 32768.0f / (float32_t)triangleUpperOffset);
         }
     }
+
+    // Render waveforms
+    for (uint16_t t = 0; t < STM32SYNTH_HALF_NUM_SAMPLING; t++)
+    {
+        q15_t chordSample = _chordBuff[t];
+
+        // Add sine waveform
+        if (sineEnabled != 0U)
+        {
+#ifdef STM32SYNTH_SIN_CORDIC
+            if (t < (STM32SYNTH_HALF_NUM_SAMPLING - 1U))
+            {
+                uint16_t nextPhase = phase + deltaPhase;
+                cordicHW->Instance->WDATA = (int32_t)((q15_t)nextPhase << 16);
+            }
+
+            q15_t sineSample = (q15_t)(cordicHW->Instance->RDATA & 0x0000FFFFU);
+#else
+            uint16_t index = phase >> 6;
+            uint16_t fraction = phase & 0x3FU;
+            int32_t v0 = sine_lut[index];
+            int32_t v1 = sine_lut[(index + 1U) & 0x03FFU];
+            q15_t sineSample = (q15_t)(v0 + (((v1 - v0) * (int32_t)fraction) >> 6));
+#endif /* STM32SYNTH_SIN_CORDIC */
+            sineSample = (q15_t)(((q31_t)sineSample * sineScaleFract) >> (15 - sineShift));
+            chordSample += sineSample;
+        }
+
+        // Add square waveform
+        if (squareEnabled != 0U)
+        {
+            chordSample += ((q15_t)phase < squareDutyPhase) ? squareLevel : -squareLevel;
+        }
+
+        // Add triangle waveform
+        if (triangleEnabled != 0U)
+        {
+            int32_t signedPhase = (q15_t)phase;
+            q15_t triangleSample = (signedPhase < trianglePeakPhase) ? (q15_t)((triangleUpperSlopeQ15 * (signedPhase + triangleUpperOffset)) >> 15) : (q15_t)((triangleLowerSlopeQ15 * (trianglePeakPoint - signedPhase)) >> 15);
+            chordSample += triangleSample;
+        }
+
+        _chordBuff[t] = chordSample;
+        phase += deltaPhase;
+    }
+
+    _configChord->rad[_wnum] = (q15_t)phase;
 
     return res;
 }
