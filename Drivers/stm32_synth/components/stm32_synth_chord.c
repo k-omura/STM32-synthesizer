@@ -5,8 +5,6 @@
  *      Author: k-omura
  */
 
-#include <stddef.h>
-#include <stdlib.h>
 #include <stdint.h>
 
 #include "stm32_synth.h"
@@ -32,14 +30,14 @@
 
 // private functions
 #ifdef STM32SYNTH_I2S
-stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_pbuffL, q15_t *_pbuffR, stm32synth_update_half_t _half);
+stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_pbuffL, q15_t *_pbuffR);
 #else
-stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_pbuff, stm32synth_update_half_t _half);
+stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_pbuff);
 #endif
 stm32synth_res_t stm32synth_chord_adsrCurve(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, float32_t *_amp);
 stm32synth_res_t stm32synth_chord_envelope(stm32synth_config_envelopec_t *_envelopec, uint32_t *_envelopeCount, int16_t *_outval);
 
-stm32synth_res_t stm32synth_chord_makerad(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, uint16_t _nn, q15_t *_radBuff, stm32synth_waveformnum_t _wnum);
+stm32synth_res_t stm32synth_chord_makerad(stm32synth_chord_t *_configChord, uint16_t _nn, q15_t *_radBuff, stm32synth_waveformnum_t _wnum);
 stm32synth_res_t stm32synth_chord_addsine(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum);
 stm32synth_res_t stm32synth_chord_addsque(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum);
 stm32synth_res_t stm32synth_chord_addtrgl(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_chordBuff, q15_t *_radBuff, stm32synth_waveformnum_t _wnum);
@@ -102,7 +100,7 @@ stm32synth_res_t stm32synth_component_testChord(stm32synth_config_t *_config)
  */
 stm32synth_res_t stm32synth_component_initChord()
 {
-    stm32synth_res_t res = STM32SYNTH_RES_NG;
+    stm32synth_res_t res = STM32SYNTH_RES_OK;
 
     for (uint8_t cc = 0; cc < STM32SYNTH_MAX_CHORD; cc++)
     {
@@ -264,14 +262,12 @@ stm32synth_res_t stm32synth_component_noteoffChord(stm32synth_config_t *_config,
  */
 stm32synth_res_t stm32synth_component_noteoffAll()
 {
-    stm32synth_res_t res = STM32SYNTH_RES_NG;
+    stm32synth_res_t res = STM32SYNTH_RES_OK;
 
     for (uint8_t cc = 0; cc < STM32SYNTH_MAX_CHORD; cc++)
     {
         chords[cc].adsr.state = STM32SYNTH_ADSRSTATE_RELEASE;
         chords[cc].adsr.count = 0;
-
-        res = STM32SYNTH_RES_OK;
     }
 
     return res;
@@ -301,8 +297,6 @@ stm32synth_res_t stm32synth_component_disableChordAll()
 #ifdef STM32SYNTH_FILTER
         chords[cc].envelope.cutoff = 0;
 #endif
-
-        res = STM32SYNTH_RES_OK;
     }
 
     return res;
@@ -354,7 +348,9 @@ stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, s
     static arm_biquad_casd_df1_inst_q15 filterInstanceR;
     static q15_t pStateR[4];
 
+#ifdef STM32SYNTH_REVERB
     q15_t *chordsBuffTemp = tempScratch;
+#endif /* STM32SYNTH_REVERB */
     q15_t *mbuff_pL = (_half == STM32SYNTH_UPDATE_LATTER) ? (&_config->buff.back[0][STM32SYNTH_HALF_NUM_SAMPLING]) : (&_config->buff.back[0][0]);
     q15_t *mbuff_pR = (_half == STM32SYNTH_UPDATE_LATTER) ? (&_config->buff.back[1][STM32SYNTH_HALF_NUM_SAMPLING]) : (&_config->buff.back[1][0]);
     arm_fill_q15(0, mbuff_pL, STM32SYNTH_HALF_NUM_SAMPLING);
@@ -406,7 +402,7 @@ stm32synth_res_t stm32synth_component_updateBuff(stm32synth_config_t *_config, s
             lfoUpdateStatus |= (0x0001 << chords[cc].channel);
         }
 
-        stm32synth_chord_updateChord(_config, &chords[cc], mbuff_pL, mbuff_pR, _half);
+        stm32synth_chord_updateChord(_config, &chords[cc], mbuff_pL, mbuff_pR);
     }
 
 #ifdef STM32SYNTH_FILTER
@@ -523,12 +519,11 @@ stm32synth_res_t stm32synth_component_initCORDIC(CORDIC_HandleTypeDef *_cordicHW
  * @param _pbuffL Pointer to the left audio buffer (only used if STM32SYNTH_I2S is defined).
  * @param _pbuffR Pointer to the right audio buffer (only used if STM32SYNTH_I2S is defined).
  * @param _pbuff Pointer to the audio buffer (only used if STM32SYNTH_I2S is not defined).
- * @param _half Indicates which half of the buffer to update (former or latter).
  * @return stm32synth_res_t STM32SYNTH_RES_OK if the chord was successfully updated, STM32SYNTH_RES_NG otherwise.
  */
-stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_pbuffL, q15_t *_pbuffR, stm32synth_update_half_t _half)
+stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_pbuffL, q15_t *_pbuffR)
 #else
-stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_pbuff, stm32synth_update_half_t _half)
+stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, q15_t *_pbuff)
 #endif
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
@@ -633,7 +628,7 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
                     nn = (nn > STM32SYNTH_MAX_FREQ_NOTE) ? STM32SYNTH_MAX_FREQ_NOTE : nn;
                 }
 
-                stm32synth_chord_makerad(_config, _configChord, nn, radBuff, ww);
+                stm32synth_chord_makerad(_configChord, nn, radBuff, ww);
 
                 if (drumConfigList[drumConfigIndex].waveformType & STM32SYNTH_CHORD_DRUM_TYPE_SIN)
                 {
@@ -697,7 +692,7 @@ stm32synth_res_t stm32synth_chord_updateChord(stm32synth_config_t *_config, stm3
                 continue;
             }
 
-            stm32synth_chord_makerad(_config, _configChord, nn[ww], radBuff, ww);
+            stm32synth_chord_makerad(_configChord, nn[ww], radBuff, ww);
 
             stm32synth_chord_addsine(_config, _configChord, chordBuff, radBuff, ww);
             stm32synth_chord_addsque(_config, _configChord, chordBuff, radBuff, ww);
@@ -915,14 +910,13 @@ stm32synth_res_t stm32synth_chord_envelope(stm32synth_config_envelopec_t *_envel
 /**
  * @brief Calculate the radian values for a specific chord.
  *
- * @param _config Pointer to the synthesizer configuration.
  * @param _configChord Pointer to the chord structure.
  * @param _nn Note number.
  * @param _radBuff Pointer to the radian buffer to be updated.
  * @param _wnum Waveform number.
  * @return stm32synth_res_t STM32SYNTH_RES_OK if the radian values were successfully calculated, STM32SYNTH_RES_NG otherwise.
  */
-stm32synth_res_t stm32synth_chord_makerad(stm32synth_config_t *_config, stm32synth_chord_t *_configChord, uint16_t _nn, q15_t *_radBuff, stm32synth_waveformnum_t _wnum)
+stm32synth_res_t stm32synth_chord_makerad(stm32synth_chord_t *_configChord, uint16_t _nn, q15_t *_radBuff, stm32synth_waveformnum_t _wnum)
 {
     stm32synth_res_t res = STM32SYNTH_RES_OK;
     float32_t freq = STM32SYNTH_TUNING * stm32synth_fast_exp2f(((float32_t)_nn / 3072.0f) - 5.75f);
